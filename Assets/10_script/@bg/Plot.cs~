@@ -1,0 +1,53 @@
+using UnityEngine;
+using System.Collections;
+
+public class Plot : _StructureBase
+{
+	
+	
+	
+	public override void attatchNear( GameObject nearInstance )
+	{
+		
+		near = nearInstance;
+		
+		
+		var tfnear = nearInstance.transform;
+		
+		tfnear.parent = transform;
+		
+		nearRender = near.GetComponent<StructureMeshRender>();
+		nearRender.structure = this;
+		
+		
+		parts = near.GetComponentsInChildren<PlotPart>( true );
+		partsLength = parts.Length;
+		
+		nearRender.mr.enabled = false;
+		
+	}
+	
+	
+	
+	
+	
+	// 遠近切り替え処理："_"ではじまるのが一度にやるバージョン、"__"が個々一度に、"_p_"が分散処理バージョン "_po_"は１フレームに一戸１ずつ
+	
+	// 外部向け -------------
+	
+	public override void switchToNear()
+	{
+		
+		_po_switchToNear();
+		
+	}
+	
+	public override void switchToFar()
+	{
+		
+		_po_switchToFar();
+		
+	}
+	
+	
+}

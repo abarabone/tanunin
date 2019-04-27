@@ -1,0 +1,1090 @@
+using UnityEngine;
+using System.Collections;
+using System.Collections.Generic;
+
+
+public interface IMissionEventable
+{
+
+}
+
+
+// ミッションイベントはホストがすべて管理する
+// イベントは個々のシステムイベントに置き換えられてクライアントへ送られる（ spawn は一体ずつ生成システムへ要求される、のように）
+// 外部のイベントジェネレータから渡されたものを登録して実行していく
+// イベントは _MEventUnitBase を継承して _process() メソッドをオーバーライドする
+// 条件は各ターゲットがあるものはそれへ渡されてそこで条件判定されて、成立したら返ってくる
+
+
+public class EventMaster : MonoBehaviour
+{
+	
+	static EventMaster	entity;
+	
+	static public MEventTargetLinker<GroupMaster>	groupMasterTargetLinker;
+	
+	
+	static int approvaledEventCount;
+	
+	static public bool hasNoEvent	{ get{ return approvaledEventCount <= 0; } }
+	
+	static public void increaseEvent()
+	{
+		approvaledEventCount++;//Debug.Log( "event " + approvaledEventCount );
+	}
+	static public void decreaseEvent()
+	{
+		approvaledEventCount--;//Debug.Log( "event " + approvaledEventCount );
+	}
+	
+	
+	void Awake()
+	{
+		
+		entity = this;
+
+
+		groupMasterTargetLinker = new MEventTargetLinker<GroupMaster>();
+
+		SystemManager.groups.eventStart( groupMasterTargetLinker );
+		
+	}
+	
+	
+	
+	static public void startMEventCoroutine( IEnumerator r )
+	{
+		entity.StartCoroutine( r );
+	}
+	
+	static public void registWaitTimeCondition( ConditionWaitTime c )
+	{
+		c.waitTime += Time.time;
+		
+		c.checkWaitTimeOnly();
+	}
+
+
+	
+	static public ConditionWaitTime createWaitTimeCondition()
+	{
+		var c = new ConditionWaitTime();
+
+		c.registToWaitTimer();
+
+		return c;
+	}
+
+	static public Tc createCondition<Tc>() where Tc:_ConditionUnit<IMissionEventable>,new()
+	{
+		return new Tc();
+	}
+
+	static public Te createEvent<Te>() where Te:_MEventUnitBase,new()
+	{
+		return new Te();
+	}
+
+}
+
+
+
+
+
+
+// イベントターゲット ********************************************************
+
+public class MEventTargetLinker<T> where T:class,IMissionEventable
+	// ターゲットは、条件やイベントの生成前にすでに存在しているとは限らない
+	// そのため、ターゲット生成の通知機構が必要　また、ターゲットが条件成立を判定・配送する機構も必要　それらを受け持つ繋ぎとなる
+	// ターゲット側のクラスと、条件やイベント、双方に持たせて間に入って処理する
+{
+	
+	public MEventConditionHolder<T>	conditions;	// ターゲットが通知すべき条件のチェイン
+	
+	
+	public T	target;
+	
+	int	dependLockRefCount;	// 依存ロックされている間は解放されないようにする
+	
+	
+	public float	processedTime;	// 初期値はゼロ、ターゲットが開始するとその時刻
+	
+	
+	
+	public bool isDependLocked()
+	{
+		return dependLockRefCount > 0;
+	}
+	
+	
+	public void addDependLock()
+	{
+		
+		dependLockRefCount++;
+		
+	}
+	
+	public void releaseDependLock()
+	{
+		
+		dependLockRefCount--;
+		
+	}
+	
+	
+	public void startup( T targ )
+	{
+		target = targ;
+		
+		processedTime = Time.time;
+		
+		for( var c = conditions.first; c != null; )
+		{
+			c.waitTime += processedTime;//Debug.Log( c.mevent.waitTime +" "+ c.mevent );
+			
+			var next = c.next;	// 即実行されてリムーブということがあるかも？
+			
+			c.check();
+			
+			c = next;
+		}
+	}
+	
+	public void checkAllConditions()
+		// ターゲットに登録した条件チェック機構から行う
+	{
+		for( var c = conditions.first; c != null; )
+		{
+			var next = c.next;	// 即実行されてリムーブということがあるかも？
+			
+			c.check();
+			
+			c = next;
+		}
+	}
+	
+	public void shutdown()
+	{
+		target = null;
+		
+		processedTime = 0.0f;
+		
+		conditions.removeAll();
+	}
+	
+	
+/*	
+	public Tc createCondition<Tc>() where Tc:_ConditionUnit<IMissionEventable>,new()
+	{
+		var c = new Tc();
+		
+		c.registTo( this );
+		
+		return c;
+	}
+
+	public Te createEvent<Te>() where Te:_MEventUnitDepended<IMissionEventable>,new()
+	{
+		var c = new Te();
+
+		c.depend( this );
+		
+		return c;
+	}
+*/
+}
+
+// ---------------------------------------------------------
+
+public struct EventTargetLinkerHolder<T> where T:class,IMissionEventable
+	// それぞれのターゲットが所持し、リンカーを格納する
+{
+	
+	public MEventTargetLinker<T>	linker	{ get; private set; }
+	
+	
+	public void init( MEventTargetLinker<T> targetLinker, T target )
+	{
+		if( linker != null )
+		{
+			linker	= targetLinker;
+			
+			linker.startup( target );
+		}
+	}
+	
+	public void fin()
+	{
+		if( linker != null )
+		{
+			linker.shutdown();
+			
+			linker = null;
+		}
+	}
+	
+	
+	public bool isDependLocked()
+	{
+		return ( linker != null )? linker.isDependLocked(): false;
+	}
+	
+	public void checkAll()
+	{
+		
+		if( linker != null ) linker.checkAllConditions();
+		
+	}
+	
+}
+
+
+
+
+// 条件チェインホルダ **********************************************
+
+// 条件はどっかにプールを作るべきかなぁ？　いや、条件ごとにクラス別だからだめか？
+
+public struct MEventConditionHolder<T> where T:class,IMissionEventable
+{
+	
+	public _ConditionUnit<T>	first;
+	public _ConditionUnit<T>	last;
+	
+	
+	public void AddLast( _ConditionUnit<T> c )
+	{
+		//	Debug.Log( "add last" );
+		
+		if( first == null ) first = c;
+		
+		c.prev = last;
+		c.next = null;
+		
+		if( last != null ) last.next = c;
+		last = c;
+	}
+	
+	public void insertPrev( _ConditionUnit<T> c1, _ConditionUnit<T> c2 )
+	{
+		//	Debug.Log( "insert prev" );
+		
+		if( c2 != null )
+		{
+			if( c2.prev == null ) first = c1;
+			
+			c1.prev = c2.prev;
+			c1.next = c2;
+			
+			if( c1.prev != null ) c1.prev.next = c1;
+			c1.next.prev = c1;
+		}
+		else
+			// e2 がないなら末尾登録と同じ
+		{
+			AddLast( c1 );
+		}
+	}
+	
+	public void removeFirst()
+	{
+		//	Debug.Log( "remove first" );
+		
+		if( first != null )
+		{
+			var oldfirst = first;
+			
+			if( first.next != null ) first.next.prev = null;
+			first = first.next;
+			
+			oldfirst.prev = null;// なくてもいいはずだが
+			oldfirst.next = null;
+		}
+	}
+	
+	public void remove( _ConditionUnit<T> c )
+	{
+		//	Debug.Log( "remove" );
+		
+		if( c.prev == null )
+		{
+			first = c.next;
+		}
+		else
+		{
+			c.prev.next = c.next;
+		}
+		if( c.next == null )
+		{
+			last = c.prev;
+		}
+		else
+		{
+			c.next.prev = c.prev;
+		}
+		
+		c.prev = null;
+		c.next = null;
+	}
+	
+	public void removeAll()
+	{
+		for( var c = first; c != null; )
+		{
+			var next = c.next;
+			
+			remove( c );
+			
+			c = next;
+		}
+	}
+	
+}
+
+
+
+
+// 条件 *************************************************************************
+
+public abstract class _ConditionUnitBase
+{
+
+
+	protected _MEventUnitBase	mevent;
+	
+	
+	public float	waitTime;
+	// 少なくともターゲットイベントから経過するべき時間、ターゲットイベント成立後はその Time.time + waitTime が入る
+	
+
+
+	public void _setEvent( _MEventUnitBase e )
+	{
+		mevent	= e;
+	}
+
+
+
+	protected void processEventAfterWaitTime()
+	{
+
+		EventMaster.increaseEvent();
+		
+		var ct = waitTime - Time.time;//Debug.Log( "check " + mevent);
+		
+		var t = (ct > 0.0f? ct: 0.0f) + mevent.waitTime;	// イベントの時間も一緒に処理してしまう
+		
+		var f = t > 0.0f;
+		
+		if( f )
+		{
+			EventMaster.startMEventCoroutine( processAfterTime(t) );
+		}
+		else
+		{
+			//Debug.Log( "not wait time " + mevent );
+			processEvent();
+		}
+
+	}
+
+	IEnumerator processAfterTime( float t )
+	{//Debug.Log( "wait time " + t + " " + mevent );
+		yield return new WaitForSeconds( t );
+		
+		processEvent();
+	}
+	
+	void processEvent()
+	{
+		mevent.process();
+		
+		mevent = null;
+		
+		EventMaster.decreaseEvent();//Debug.Log( "processed " + mevent );
+	}
+	
+}
+
+// ------------------------------------------------------
+
+
+public abstract class _ConditionUnit<T> : _ConditionUnitBase where T:class,IMissionEventable
+	// ターゲットに依存する条件はこれを継承する
+	// 破棄タイミング
+	// 　・EventTargetLinkerHolder.remove()
+	// 　・EventTargetLinkerHolder.fin() での条件全消し
+{
+	
+	public _ConditionUnit<T>	prev;
+	public _ConditionUnit<T>	next;
+
+	
+	protected MEventTargetLinker<T>	dependedLinker;
+	
+
+	
+	protected abstract bool _check();
+
+
+	public void check()
+	{
+		
+		if( /*mevent == null || */mevent.conditionCount == 0 || mevent.isLostDeppend() == true )
+		// イベントが無いか実行済み（ＯＲ等の残党）なら、ここでクリンナップする
+		{
+			
+			removeCondition();//Debug.Log( "no or finished event " + mevent);
+
+			mevent = null;
+
+		}
+		else if( _check() )
+		{//Debug.Log( "0check " + mevent);
+			
+			removeCondition();//Debug.Log( "1check " + mevent);
+			
+			processEventAfterWaitTime();//Debug.Log( "2check " + mevent);
+			
+		}
+		
+	}
+
+	void removeCondition()
+	{
+		
+		if( dependedLinker != null )
+		{//Debug.Log( "remove " + this );
+			
+			dependedLinker.conditions.remove( this );
+			
+		}
+		
+	}
+	
+	public MEventTargetLinker<T> registTo( MEventTargetLinker<T> linker )
+	{
+		
+		dependedLinker = linker;
+		
+		waitTime += linker.processedTime;
+		
+		linker.conditions.AddLast( this );
+		
+	//	check();
+		
+		return linker;
+		
+	}
+
+
+	//	public virtual void registToGroupMaster(){}
+	
+}
+
+
+
+
+// イベント *************************************************************************
+
+
+public abstract class _MEventUnitBase
+	// 破棄タイミング
+	// 　・_ConditionUnit.processEvent() で実行後
+	// 　・_ConditionUnit.check() 内での検査（達成すべき条件が一つもない・依存先が消失している）
+	// 　・EventTargetLinkerHolder.fin() での条件全消しによるＧＣによる破棄
+{
+
+	
+	public int	conditionCount	{ get; protected set; }
+	// イベント駆動に必要な達成条件の数
+
+	
+	protected enMode	conditionsMode;
+	
+		public enum enMode { or = -1, and = 0 }
+	
+	
+	public float	waitTime;	// 条件成立からイベント開始までの時間（処理は条件時間で一緒にしてしまう）
+
+
+	
+	protected abstract void _process();
+
+	
+	public void process()
+	{
+		
+		conditionCount--;
+		
+		if( conditionCount == 0 )
+		{
+
+			_process();
+
+		}
+		
+	}
+
+
+	public _MEventUnitBase setTriggerCount( int emode ) { return setTriggerMode( (enMode)emode ); }
+	public _MEventUnitBase setTriggerMode( enMode emode )
+	{
+		
+		conditionsMode = emode;
+		
+		
+		if( conditionsMode == enMode.or )
+		{
+			
+			conditionCount = 1;
+			
+		}
+		else// if( conditionsMode == enMode.and || (int)conditionsMode > 0 )
+		{
+			
+			conditionCount = (int)conditionsMode;
+			
+		}
+		
+		return this;
+	}
+
+	
+	public virtual _ConditionUnit<Tc> applyTo<Tc>( _ConditionUnit<Tc> c ) where Tc:class,IMissionEventable
+	{
+		c._setEvent( this );//c.mevent = this;
+		
+		if( conditionsMode == enMode.and ) conditionCount++;
+		
+		return c;
+	}
+	
+	public virtual ConditionCompositionUnit applyTo( ConditionCompositionUnit c )
+	{
+		c._setEvent( this );//c.mevent = this;
+		
+		if( conditionsMode == enMode.and ) conditionCount++;
+		
+		c.waitTime = waitTime;
+		
+		return c;
+	}
+
+
+	public virtual bool isLostDeppend()
+	{
+		return false;
+	}
+
+}
+
+
+public class ConditionCompositionUnit : _MEventUnitBase
+// ＡＮＤ・ＯＲ混合条件のためのハブ
+{
+	
+	protected _MEventUnitBase	mevent;
+	
+	protected override void _process()
+	{
+		mevent.process();
+	}
+	
+	public void _setEvent( _MEventUnitBase e )
+	{
+		mevent = e;
+	}
+	
+}
+
+
+// ------------------------------------------------------
+
+public abstract class _MEventUnit : _MEventUnitBase
+// 発行・依存するターゲットを持たない
+{
+
+}
+
+public abstract class _MEventUnitIssuable<T> : _MEventUnitBase where T:class,IMissionEventable//IMissionEventable
+// ターゲットを発行し、依存するターゲットを持たない
+{
+
+	public MEventTargetLinker<T>	holdLinker	{ get; private set; }
+	// 自分の生み出すターゲットリンカーを格納する	
+
+	
+	public _MEventUnitIssuable()
+	{
+		holdLinker = new MEventTargetLinker<T>();
+	}
+	
+	public MEventTargetLinker<T> issue()
+	{
+		return holdLinker;
+	}
+	
+}
+
+public abstract class _MEventUnitDepended<T> : _MEventUnitBase where T:class,IMissionEventable//IMissionEventable
+// ターゲットを発行せず、依存するターゲットを持つ
+// 内部的には、ターゲット生成時条件とその他条件のハブを持ち、それらをＡＮＤチェックして実行する
+// 通常条件を追加しない場合は、イベント生成のみに依存する
+// もし、イベントを実行する前にターゲットが消失するのを防ぎたい場合は、
+// 　ターゲットのイベント依存リファレンスカウンタを繰り上げる（ addDependLock() ）
+// 　その場合、イベント処理（ _process() ）実行後、その中でリファレンスカウンタを繰り下げなくてはならない（ releaseDependLock() ）
+{
+
+	public MEventTargetLinker<T>	dependedLinker	{ get; private set; }	// 依存するターゲット	
+
+
+	ConditionCompositionUnit	ce;	// 通常条件（ハブ）
+
+	ConditionTargetCreated<T>	ct;	// ターゲット生成時条件
+
+
+	
+	public _MEventUnitDepended()
+	{
+		
+		conditionCount = 1;
+		
+		ce = new ConditionCompositionUnit();
+		ce._setEvent( this );//.mevent = this;
+		
+		ct = new ConditionTargetCreated<T>();
+		ct._setEvent( this );//.mevent = this;
+		
+	}
+	
+	public void depend( MEventTargetLinker<T> linker )
+	{
+		
+		dependedLinker = linker;
+		
+		ct.registTo( linker );
+
+	}
+
+
+	public override _ConditionUnit<Tc> applyTo<Tc>( _ConditionUnit<Tc> c )
+	{
+		
+		conditionCount = 2;
+		
+		ce.applyTo( c );
+		
+		return c;
+
+	}
+	
+	public override ConditionCompositionUnit applyTo( ConditionCompositionUnit c )
+	{
+		
+		conditionCount = 2;
+		
+		ce.waitTime = waitTime;
+		
+		ce.applyTo( c );
+		
+		return c;
+
+	}
+
+	public override bool isLostDeppend()
+	{
+		return dependedLinker.target == null;
+	}
+
+	
+	public void addDependLock()
+	{
+		
+		dependedLinker.addDependLock();
+		
+	}
+	
+	public void releaseDependLock()
+	{
+		
+		dependedLinker.releaseDependLock();
+		
+	}
+
+}
+
+public abstract class _MEventUnitDependedIssuable<Td,Th> : _MEventUnitDepended<Td> where Td:class,IMissionEventable where Th:class,IMissionEventable//IMissionEventable
+// 発行・依存するターゲットを持つ
+{
+	
+	public MEventTargetLinker<Th>	holdLinker	{ get; private set; }	// 自分の生み出すターゲット	
+	
+	
+	public _MEventUnitDependedIssuable() : base()
+	{
+		holdLinker = new MEventTargetLinker<Th>();
+	}
+	
+	public MEventTargetLinker<Th> issue()
+	{
+		return holdLinker;
+	}
+
+}
+
+
+
+
+
+// 各種条件 **************************************************************************
+
+public class ConditionTargetCreated<T> : _ConditionUnit<T> where T:class,IMissionEventable
+// ターゲットが生成された
+{
+	protected override bool _check()
+	{
+		return dependedLinker.target != null;
+	}
+}
+
+
+public class ConditionWaitTime : _ConditionUnitBase
+	// ターゲットには依存せず、時間だけで処理する条件
+{
+	
+	public void checkWaitTimeOnly()
+	{
+		
+		// はじめからターゲットに登録はしないので、クリンナップは必要ない
+		
+		processEventAfterWaitTime();
+		
+	}
+	
+	public void registToWaitTimer()
+	{
+		EventMaster.registWaitTimeCondition( this );
+	}
+	
+}
+
+
+
+
+
+public class ConditionRemainMemberInGroup : _ConditionUnit<ActivityGroup>
+// グループのメンバー数が指定以下になったら条件成立
+{
+	
+	public int	remainCount			= 0;
+	
+	public int	onceArrivalMember	= 1;
+	
+	protected override bool _check()
+	{
+		var group = dependedLinker.target;//Debug.Log( "con rem " + group + " " + (group?group.memberCount:0) +":"+ remainCount );
+		
+		return group && group.onceArrivaledMemberCount >= onceArrivalMember && group.memberCount <= remainCount;
+	}
+	
+}
+
+
+public class ConditionNoLeaderInGroup : _ConditionUnit<ActivityGroup>
+// グループのリーダーが不在になったら条件成立
+{
+	
+	protected override bool _check()
+	{
+		var group = dependedLinker.target;//if( group) Debug.Log( group.onceArrivaledMemberCount );
+		
+	//	return group && group.onceArrivaledMemberCount > 0 && group.leader == null;
+		return group && group.onceArrivaledMemberCount > 0 && !group.hasLeader;
+	}
+	
+}
+
+
+public class ConditionRemainLife : _ConditionUnit<_ActionBase>
+// グループのリーダーが不在になったら条件成立
+{
+	
+	public float	remainLife;
+	
+	
+	protected override bool _check()
+	{
+		var act = dependedLinker.target;
+		
+		return act && act.hp.life <= remainLife;
+	}
+	
+}
+
+
+
+
+/*
+public class ConditionRemainGroup : _ConditionUnitBase<GroupMaster>
+// グループのメンバー数が指定以下になったら条件成立
+{
+	
+	public int	remainCount		= 0;
+	
+	public int	eventProgress	= 0;
+	
+	
+	public override void registToGroupMaster()
+	{
+		registTo( EventMaster.groupMasterTargetLinker );
+	}
+	
+	protected override bool _check()
+	{
+		var groupMaster = dependedLinker.target;//Debug.Log( "con rem " + groupMaster + " " + (groupMaster!=null?groupMaster.count:0) +":"+ remainCount );
+		
+	//	Debug.Log( "event progress" + _MEventUnit.eventProgress +":"+ eventProgress );
+		
+		return _MEventUnit.eventProgress >= eventProgress && groupMaster.count <= remainCount;
+	}
+	
+}
+*/
+
+
+
+// 各種イベント **************************************************************************
+
+public class EventPlayMusic : _MEventUnit
+{
+	
+	public int		clipId;
+	
+	public float	delay;
+	
+	
+	protected override void _process()
+	{
+		
+		SystemManager.music.play( clipId, delay );
+		
+	}
+	
+}
+
+
+public class EventTextToSpeech : _MEventUnit
+{
+	
+	public string	text;
+	
+	
+	protected override void _process()
+	{
+		
+		Application.ExternalCall( "sp", text );
+		
+	}
+	
+}
+
+
+
+// 構造体では初期化もできないしコルーチンに渡せないので仕方なくクラス
+
+public class GroupInfo
+{
+	public Vector3	center			= Vector3.zero;
+	
+	public float	territory		= 50.0f;
+	
+	public float	arrowProtrusion	= 20.0f;
+	
+	public int		actType;
+}
+
+public class SpawnInfo
+{
+	
+	public int		number		= 0;
+	
+	public float	interval	= 0.0f;
+	
+	public int		maxExists	= 256;
+	
+//	public bool		firstCharacterIsLeader	= false;
+	
+	public bool		lockable = true;
+	
+}
+
+public class MemberInfo
+{
+	
+	public _ActionBase	characterPrefab;
+	
+	public _EnemyActionBase.enDisposition	aggression	= _EnemyActionBase.enDisposition.high;
+	public _EnemyActionBase.enDisposition	domination	= _EnemyActionBase.enDisposition.middle;
+	public _EnemyActionBase.enDisposition	activeness	= _EnemyActionBase.enDisposition.middle;
+	
+	public bool		wakeUpInBattle	= false;
+	
+	public bool		isLeader		= false;
+	
+}
+
+
+public class EventCreateGroup : _MEventUnitIssuable< ActivityGroup >
+// グループを生成し、敵を指定の数だけ出現させる
+// 出現位置はランダム、地上では頭上から・地下では中心からレイを飛ばして障害物を特定する
+{
+	
+	public GroupInfo	group = new GroupInfo();
+	
+	public SpawnInfo	spawn = new SpawnInfo();
+	
+	public MemberInfo	member = new MemberInfo();
+	
+	
+	protected override void _process()
+	{
+		
+		var ag = SystemManager.groups.prefab.createGroup( group, member.isLeader, holdLinker );
+		
+		if( spawn.number > 0 )
+		{
+			ag.StartCoroutine( ag.spawnLoop(spawn,member) );
+		}
+		
+	}
+	
+}
+
+public class EventAddMembersToGroup : _MEventUnitDepended< ActivityGroup >
+// 既存グループに敵を指定の数だけ出現させる
+// 出現位置はランダム、地上では頭上から・地下では中心からレイを飛ばして障害物を特定する
+{
+	
+	public SpawnInfo	spawn = new SpawnInfo();
+	
+	public MemberInfo	member = new MemberInfo();
+
+
+	public EventAddMembersToGroup()
+	{
+		addDependLock();
+	}
+
+	protected override void _process()
+	{
+		
+		var group = dependedLinker.target;
+		
+		if( spawn.number > 0 )
+		{
+			group.StartCoroutine( group.spawnLoop(spawn,member) );
+		}
+		
+		releaseDependLock();
+
+	}
+	
+}
+
+
+public class EventAddOneMemberToGroup : _MEventUnitDependedIssuable< ActivityGroup, _ActionBase >
+{
+	
+	public MemberInfo	member = new MemberInfo();
+
+	public EventAddOneMemberToGroup()
+	{
+		addDependLock();
+	}
+	
+	protected override void _process()
+	{
+				
+		var group = dependedLinker.target;
+		
+		group.spawnOne( member, holdLinker );
+
+		releaseDependLock();
+
+	}
+	
+}
+
+
+public class EventCreateGroupGate : _MEventUnitIssuable< ActivityGroup >
+// グループを生成し、キャリアを作成する
+{
+	
+	public GroupInfo	group = new GroupInfo();
+	
+	public SpawnInfo	spawn = new SpawnInfo();
+	
+	public MemberInfo	member = new MemberInfo();
+	
+	
+	public EnemysGate	gatePrefab;
+	
+	
+	public Vector3	startPoint;
+	
+	public Vector3	endPoint;
+	
+	public float	emitStartTime	= 0.0f;
+	
+	public float	maxSpeed		= 0.0f;
+	
+	public bool		readyEmit		= false;
+	
+	
+	protected override void _process()
+	{
+		
+		var ag = SystemManager.groups.prefab.createGroup( group, member.isLeader, holdLinker );
+		
+		var gate = gatePrefab.create( startPoint, ag );
+		
+		gate.enemyPrefab	= (_EnemyActionBase)member.characterPrefab;
+		gate.targetPoint	= endPoint;
+		gate.enemyStock		= spawn.number;
+		gate.emitStartTime	= emitStartTime;
+		gate.emitInterval	= ( spawn.interval != 0.0f )? spawn.interval: gate.emitInterval;
+		gate.maxSpeed		= ( maxSpeed != 0.0f )? maxSpeed: gate.maxSpeed;
+		gate.readyEmit		= readyEmit;
+		
+		gate.aggression	= member.aggression;
+		gate.domination = member.domination;
+		gate.activeness = member.activeness;
+		
+		gate.firstCharacterIsLeader	= member.isLeader;
+		gate.wakeUpInBattle			= member.wakeUpInBattle;
+		
+		gate.init();
+		
+	}
+	
+}
+
+
+
+public class EventStopSpawnInGroup : _MEventUnitDepended< ActivityGroup >
+{
+	
+	protected override void _process()
+	{
+				
+		var group = dependedLinker.target;
+		
+		group.stopAllSpawn();
+
+	}
+	
+}
+
+

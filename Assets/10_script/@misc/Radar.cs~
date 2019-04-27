@@ -1,0 +1,216 @@
+using UnityEngine;
+using System.Collections;
+
+public class Radar : MonoBehaviour
+{
+	
+	
+	public Shader		shader;
+	
+	public Texture2D	texture;
+	
+	
+	static PcAction	player;
+	
+	MeshRenderer	mr;
+	static MaterialPropertyBlock	mpb;
+	
+	
+	static int	nowIndex;
+	
+	
+	void Awake()
+	{
+		
+		createMesh( 100 );
+		
+		mpb = new MaterialPropertyBlock();
+		
+		setViewTypeProperties();
+		
+		setBaseLayerProperty();
+		
+	}
+	void Start()
+	{
+		
+		player = GameObject.Find( "player" ).GetComponent<PcAction>();
+		
+		nowIndex = 1;
+		
+	}
+	
+	void LateUpdate()
+	{
+		
+		mr.SetPropertyBlock( mpb );
+		
+		mpb.Clear();
+		
+		nowIndex = 1;
+		
+	}
+	
+	
+	public enum enType
+	{
+		player,
+		second,
+		third,
+		enemy,
+		item,
+		meca,
+	}
+	
+	public void setBaseLayerProperty()
+	{
+		
+		var p = new Vector4( 0.0f, 0.0f, 1.0f, 0.0f );
+		
+		mr.material.SetVector( "p0", p );
+		
+	}
+	
+	static public void setViewProperty( enType type, Vector3 pos, float size )
+	{
+		
+		var dir = player.tf.worldToLocalMatrix.MultiplyVector( pos - player.tf.position );
+		
+		var dir2d = new Vector2( dir.x, dir.z );
+		
+		if( dir2d.sqrMagnitude > 100.0f * 100.0f ) dir2d.Normalize(); else dir2d *= 1.0f / 100.0f;
+		
+		var p = new Vector4( dir2d.x * 0.3f, dir2d.y * 0.3f, size, (float)type );
+		
+		mpb.AddVector( "p" + nowIndex, p );
+		
+		nowIndex++;
+		
+	}
+	
+	
+	void setViewTypeProperties()
+	{
+		
+		var mat = mr.material;
+		
+		mat.SetColor( "c0", Color.white );//+ new Color(0.0f,0.0f,0.0f,1.0f) );
+		mat.SetColor( "c1", Color.green );
+		mat.SetColor( "c2", Color.gray );
+		mat.SetColor( "c3", Color.red );
+		mat.SetColor( "c4", Color.blue );
+		mat.SetColor( "c5", Color.yellow );
+		
+	}
+	
+	void createMesh( int pointLength )
+	{
+		
+		var length = 1 + pointLength;
+		
+		var idxs	= new int[ 6 * length  ];
+		var vtxs	= new Vector3[ 4 * length ];
+		var uvs		= new Vector2[ 4 * length ];
+		var ids		= new Color32[ 4 * length ];
+		
+		
+		createBaseLayer( 0, idxs, vtxs, uvs, ids );
+		
+		
+		for( var i=1; i<length; i++ )
+		{
+			
+			createPoint( i, idxs, vtxs, uvs, ids );
+			
+		}
+		
+		
+		var mesh = new Mesh();
+		
+		mesh.vertices	= vtxs;
+		mesh.uv			= uvs;
+		mesh.colors32	= ids;
+		mesh.triangles	= idxs;
+		
+		
+		var mf	= gameObject.AddComponent<MeshFilter>();
+		mf.sharedMesh = mesh;
+		
+		
+		var mat = new Material( shader );
+		mat.mainTexture	= texture;
+		
+		
+		mr	= gameObject.AddComponent<MeshRenderer>();
+		mr.sharedMaterial = mat;
+		
+	}
+	
+	
+	void createPoint( int i, int[] idxs, Vector3[] vtxs, Vector2[] uvs, Color32[] ids )
+	{
+		
+		var ivtx = i * 4;
+		
+		vtxs[ ivtx + 0 ]	= new Vector3( -0.5f,  0.5f, 1.0f );	// 左上
+		vtxs[ ivtx + 1 ]	= new Vector3(  0.5f,  0.5f, 1.0f );	// 右上
+		vtxs[ ivtx + 2 ]	= new Vector3(  0.5f, -0.5f, 1.0f );	// 右下
+		vtxs[ ivtx + 3 ]	= new Vector3( -0.5f, -0.5f, 1.0f );	// 左下
+		
+		uvs[ ivtx + 0 ]	= Vector2.one * 0.5f;	// 左上
+		uvs[ ivtx + 1 ]	= Vector2.one * 0.5f;	// 右上
+		uvs[ ivtx + 2 ]	= Vector2.one * 0.5f;	// 右下
+		uvs[ ivtx + 3 ]	= Vector2.one * 0.5f;	// 右下
+		
+		ids[ ivtx + 0 ]	= new Color32( 0, 0, 0, (byte)i );	// 左上
+		ids[ ivtx + 1 ]	= new Color32( 0, 0, 0, (byte)i );	// 右上
+		ids[ ivtx + 2 ]	= new Color32( 0, 0, 0, (byte)i );	// 右下
+		ids[ ivtx + 3 ]	= new Color32( 0, 0, 0, (byte)i );	// 右下
+		
+		
+		var iidx = i * 6;
+		
+		idxs[ iidx++ ]	= ivtx + 0;
+		idxs[ iidx++ ]	= ivtx + 1;
+		idxs[ iidx++ ]	= ivtx + 3;
+		idxs[ iidx++ ]	= ivtx + 3;
+		idxs[ iidx++ ]	= ivtx + 1;
+		idxs[ iidx++ ]	= ivtx + 2;
+		
+	}
+	
+	void createBaseLayer( int i, int[] idxs, Vector3[] vtxs, Vector2[] uvs, Color32[] ids )
+	{
+		
+		var ivtx = i * 4;
+		
+		vtxs[ ivtx + 0 ]	= new Vector3( -0.5f,  0.5f, 0.0f );	// 左上
+		vtxs[ ivtx + 1 ]	= new Vector3(  0.5f,  0.5f, 0.0f );	// 右上
+		vtxs[ ivtx + 2 ]	= new Vector3(  0.5f, -0.5f, 0.0f );	// 右下
+		vtxs[ ivtx + 3 ]	= new Vector3( -0.5f, -0.5f, 0.0f );	// 左下
+		
+		uvs[ ivtx + 0 ]	= new Vector2( 0.0f, 0.0f );	// 左上
+		uvs[ ivtx + 1 ]	= new Vector2( 1.0f, 0.0f );	// 右上
+		uvs[ ivtx + 2 ]	= new Vector2( 1.0f, 1.0f );	// 右下
+		uvs[ ivtx + 3 ]	= new Vector2( 0.0f, 1.0f );	// 左下
+		
+		ids[ ivtx + 0 ]	= new Color32( 0, 0, 0, (byte)i );	// 左上
+		ids[ ivtx + 1 ]	= new Color32( 0, 0, 0, (byte)i );	// 右上
+		ids[ ivtx + 2 ]	= new Color32( 0, 0, 0, (byte)i );	// 右下
+		ids[ ivtx + 3 ]	= new Color32( 0, 0, 0, (byte)i );	// 右下
+		
+		
+		var iidx = i * 6;
+		
+		idxs[ iidx++ ]	= ivtx + 0;
+		idxs[ iidx++ ]	= ivtx + 1;
+		idxs[ iidx++ ]	= ivtx + 3;
+		idxs[ iidx++ ]	= ivtx + 3;
+		idxs[ iidx++ ]	= ivtx + 1;
+		idxs[ iidx++ ]	= ivtx + 2;
+		
+	}
+	
+	
+	
+}

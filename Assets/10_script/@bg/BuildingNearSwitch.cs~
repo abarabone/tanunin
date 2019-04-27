@@ -1,0 +1,20 @@
+using UnityEngine;
+using System.Collections;
+
+[RequireComponent(typeof(SphereCollider))]
+public class BuildingNearSwitch : MonoBehaviour
+{
+	
+	void OnTriggerEnter( Collider otherCollider )
+	{
+		
+	//	if( otherCollider.gameObject.layer == UserLayer.bgEnvelope )
+		{
+			Component	obj	= otherCollider.attachedRigidbody;
+
+			( obj? obj: otherCollider ).GetComponent<_StructureBase2>().switchToNear();
+		}
+		
+	}
+	
+}

@@ -1,0 +1,159 @@
+using UnityEngine;
+using System.Collections;
+
+public class PlotPart2Cableset : _StructurePartBase2
+{
+
+	
+	Transform	tfStartSidePole;
+	
+	Transform	tfEndSidePole;
+
+
+	CableSideLocations[]	sidePositions;
+	
+
+
+	struct CableSideLocations
+	{
+		public Vector3	start;
+		public Vector3	end;
+
+		public CableSideLocations( CablePiece cable )
+		{
+			start	= cable.tfStartSide.position;
+			end		= cable.tfEndSide.position;
+		}
+	}
+
+
+	public void setPoleLinks( CablePiece[] cables )
+	{
+
+	//	if( cables.Length > 0 )	// 呼び出し元でチェック済み
+		{
+
+			sidePositions = new CableSideLocations[ cables.Length ];
+
+
+			tfStartSidePole	= cables[0].tfStartSide.parent;
+
+			tfEndSidePole	= cables[0].tfEndSide.parent;
+
+
+			for( int i = 0; i < cables.Length; i++ )
+			{
+				
+				sidePositions[i] = new CableSideLocations( cables[i] );
+				
+			}
+
+		}
+
+	}
+	
+	public override void init( int id )
+	{
+
+		base.init( id );
+
+
+		var startSidePole	= tfStartSidePole.GetComponent<PlotPart2UtlPole>();
+		
+		startSidePole.cablesetLink.addStartSide( this );
+		
+		
+		var endSidePole		= tfEndSidePole.GetComponent<PlotPart2UtlPole>();
+		
+		endSidePole.cablesetLink.addEndSide( this );
+
+	}
+
+
+	public override void fallDown( StructureBreakController breaker, float pressure, Vector3 direction, Vector3 point )
+	{
+
+		showCutcables( breaker.structure );
+
+		emitSpark( point );
+
+		Destroy( gameObject );
+
+
+		base.fallDown( breaker, pressure, direction, point );
+
+	}
+
+	
+	void emitSpark( Vector3 point )
+	{
+		
+		
+		
+	}
+
+
+	public void cut( Transform tfBrokenPole, StructureBreakController breaker )
+	{
+/*
+		if( tfBrokenPole == tfStartSidePole )
+		{
+			tfStartSidePole = null;
+		}
+		else if( tfBrokenPole == tfEndSidePole )
+		{
+			tfEndSidePole = null;
+		}
+*/
+
+		if( breaker.structure.nearRender.isVisible( partId ) )
+		{
+			fallDown( breaker, 0.0f, Vector3.down, tf.position + tf.forward * ( tf.localScale.z * 0.5f ) );
+		}
+
+	}
+
+
+
+	void showCutcables( _StructureBase2 structure )
+	{
+
+		if( tfStartSidePole != null )
+		{
+			foreach( var pos in sidePositions )
+			{
+				createCutcableInstance( tfStartSidePole, pos.start, tf.rotation, structure );
+			}
+		}
+
+		if( tfEndSidePole != null )
+		{
+			var rot	= Quaternion.Inverse( tf.rotation );
+
+			foreach( var pos in sidePositions )
+			{
+				createCutcableInstance( tfEndSidePole, pos.end, rot, structure );
+			}
+		}
+
+	}
+
+	
+	void createCutcableInstance( Transform tfPole, Vector3 pos, Quaternion rot, _StructureBase2 sutructure )
+	{
+
+		var cutcableInstance = (GameObject)Instantiate( SystemManager.cutcablePrefab, pos, rot );
+
+		cutcableInstance.transform.parent = sutructure.near.transform;
+
+
+		var pole = tfPole.GetComponent<PlotPart2UtlPole>();
+
+		var cutcable = cutcableInstance.GetComponent<CutCable>();
+
+		pole.cutcableLink.addCutCable ( cutcable );
+
+	}
+
+
+}

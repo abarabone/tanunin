@@ -1,0 +1,29 @@
+using UnityEngine;
+using System.Collections;
+
+public class PlotPart2CableFromChildren : _StructurePart2FromChildrenBase
+{
+
+
+	public PlotPart2UtlPole	startSide;
+
+	public PlotPart2UtlPole	endSide;
+
+
+	public virtual void build()
+	{
+
+		if( startSide != null )
+		{
+
+		}
+
+
+
+		base.build();
+		
+		gameObject.AddComponent<PlotPart2Cable>();
+
+	}
+
+}

@@ -1,0 +1,195 @@
+using UnityEngine;
+using System.Collections;
+using System.Collections.Generic;
+
+
+
+
+
+
+public class GamePadConfig: MonoBehaviour
+{
+	
+	_GamePadConfigKeyBase[]	keys;
+	
+	public InputUnit[]	refinps;
+	
+	
+	public bool	isAnyKeyClicked			{ get; set; }
+	
+	public GamePad.enButton	selectionId	{ get; set; }
+	
+	
+	Transform	tf;
+	Camera		cam;
+	
+	
+	public void init( GamePad gp, InputUnit[] inputs )
+	{
+		
+		tf = transform;
+		cam = tf.parent.camera;
+		
+		
+		refinps = inputs;
+		
+		keys = GetComponentsInChildren<_GamePadConfigKeyBase>( true );
+		
+		foreach( var key in keys ) key.init( this );
+		
+		
+		selectionId = GamePad.enButton.none;
+		
+	}
+	
+	void Update()
+	{
+		
+		if( !isAnyKeyClicked && Input.GetMouseButtonDown(0) )
+		{
+			if( selectionId == GamePad.enButton.none ) GamePad.requestMenuOpen = true;
+			
+			selectionId = GamePad.enButton.none;
+		}
+		else
+		{
+			GamePad.requestMenuOpen = refinps[ (int)GamePad.enButton.start ].getDigitalDown();
+		}
+		
+		
+		setKeyInput();
+		
+		keysPushVisual();
+		
+		chagePadAngle();
+		
+		
+		isAnyKeyClicked = false;
+		
+	}
+	
+	
+	void chagePadAngle()
+	{
+		
+		if( cam.ScreenToViewportPoint(Input.mousePosition).y > 0.67f )
+		{
+			tf.localRotation = Quaternion.Lerp( tf.localRotation, Quaternion.Euler(90.0f,180.0f,0.0f), Time.deltaTime * 20.0f );
+			tf.localPosition = Vector3.Lerp( tf.localPosition, new Vector3(0.0f,3.0f,8.5f), Time.deltaTime * 20.0f );
+		}
+		else
+		{
+			tf.localRotation = Quaternion.Lerp( tf.localRotation, Quaternion.Euler(0.0f,180.0f,0.0f), Time.deltaTime * 20.0f );
+			tf.localPosition = Vector3.Lerp( tf.localPosition, new Vector3(0.0f,3.0f,10.5f), Time.deltaTime * 20.0f );
+		}
+		
+	}
+	
+	
+	void setKeyInput()
+	// すべてのキーを見てキーチェンジを実行する
+	{
+		if( selectionId != GamePad.enButton.none && !refinps[(int)selectionId].getDigital() )
+		{
+			for( var i=(int)GamePad.enButton.length; i-->0; )
+			{
+				if( refinps[i].getDigitalDown() )
+				{
+					
+					var tmp = refinps[ (int)selectionId ];
+					
+					refinps[ (int)selectionId ] = refinps[ i ];
+					
+					refinps[ i ] = tmp;
+					
+					
+					GamePad.wasKeyChanged = true;
+					
+					return;
+				}
+			}
+		}
+	}
+	
+	void keysPushVisual()
+	// キー押下を見た目に反映する
+	{
+		foreach( var key in keys )
+		{
+			key.keyPush( refinps[(int)key.keyId].getDigital() );
+		}
+	}
+	
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public abstract class _GamePadConfigKeyBase : MonoBehaviour
+{
+	
+	public GamePad.enButton	keyId;
+	
+	protected bool	nowSelected	{ get { return configer.selectionId == keyId; } }
+	
+	
+	protected Transform		tf;
+	protected GamePadConfig	configer;
+	
+	
+	
+	public abstract void keyPush( bool isPush );
+	
+	
+	public void init( GamePadConfig parent )
+	{
+		tf = transform;
+		
+		configer = parent;
+	}
+	
+	
+	protected void Update()
+	{
+		
+		if( nowSelected )
+		{
+			tf.localScale = Vector3.Lerp( tf.localScale, Vector3.one * 2.0f, Time.deltaTime * 10.0f );
+		}
+		else
+		{
+			tf.localScale = Vector3.Lerp( tf.localScale, Vector3.one * 1.0f, Time.deltaTime * 10.0f );
+		}
+		
+	}
+	
+	protected void OnMouseDown()
+	{
+		
+		if( nowSelected )
+		{
+			configer.selectionId = GamePad.enButton.none;
+			
+		}
+		else
+		{
+			configer.selectionId = keyId;
+			
+		}
+		
+		configer.isAnyKeyClicked = true;
+	}
+	
+}
+

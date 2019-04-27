@@ -1,0 +1,124 @@
+using UnityEngine;
+using System.Collections;
+using System.Collections.Generic;
+
+public class PlotTemplateHolder : MonoBehaviour
+{
+
+	Dictionary<string,GameObject>	templates;// = new Dictionary<string,GameObject>( 64 );
+	
+	
+	public Shader	srcMainShader;
+	
+	public Shader	dstNearShader;
+	
+	
+	public void init()
+	{
+		clear();
+		
+		templates = new Dictionary<string,GameObject>( 64 );
+	}
+	
+	public void clear()
+	{
+		if( templates != null )
+		{
+			foreach( var go in templates.Values )
+			{
+				GameObject.Destroy( go );
+			}
+			
+			templates.Clear();
+			
+			templates = null;
+		}
+	}
+	
+	
+	public void loadTemplateInstance( Plot plot )
+	{
+		
+		if( !templates.ContainsKey( plot.name ) )
+		{
+			registTemplateInstance( plot.name );
+		}
+		
+	}
+	
+	public void packTextures()
+	{
+		
+		var texpacker = new TexturePacker( srcMainShader );
+		
+		foreach( var go in templates.Values )
+		{
+			texpacker.regist( go );
+		}
+		
+		texpacker.pack();
+		
+	}
+	
+	public void buildMeshes()
+	// ホルダー傘下のインスタンステンプレートを単一メッシュ化する。
+	{
+		
+		foreach( var go in templates.Values )
+		{
+			buildTemplate( go );
+		}
+		
+	}
+	
+	public void attachNear( Plot plot )
+	// 単一メッシュを追加して、
+	{
+		
+		var name = plot.name;
+		
+		var nearTemplate = templates[ name ];
+		
+		
+		var tf = plot.transform;
+		var tft= nearTemplate.transform;
+		
+		var pos = tf.position + tft.localPosition;// あってる？ 
+		var rot = tf.rotation * tft.localRotation;// あってる？
+		
+		var near = (GameObject)Instantiate( nearTemplate, pos, rot );
+		
+		
+	//	plot.initAttatchedNear( near );
+		
+	}
+	
+	
+	
+	void registTemplateInstance( string name )
+	// リソースから近距離オブジェクトをインスタンス化して、ホルダーに加える。
+	{
+		
+		var prefab = (GameObject)Resources.Load( name );
+		
+		var nearTemplate = (GameObject)Instantiate( prefab.transform.GetChild(0).gameObject );
+		
+	//	Resources.UnloadAsset( prefab );
+		
+		
+		templates[ name ] = nearTemplate;
+		
+		nearTemplate.transform.parent = transform;
+		
+	}
+	
+	void buildTemplate( GameObject nearTemplate )
+	// 指定されたインスタンステンプレートを単一メッシュ化する。
+	{
+		
+		var csm = new CombineStructureMesh();
+		
+		csm.combineVisibilityMesh( nearTemplate, dstNearShader );
+		
+	}
+}

@@ -1,0 +1,32 @@
+using UnityEngine;
+using System.Collections;
+
+public class DirStretchBillBoard : MonoBehaviour
+{
+	
+	protected Transform	tf;
+	
+	protected Vector3	prePos;
+	
+	
+	void Awake()
+	{
+		
+		tf = transform;
+		
+	}
+	
+	void Update()
+	{
+		var dir = ( tf.position - prePos ).normalized;
+		
+		tf.rotation = Camera.main.transform.rotation * Quaternion.Euler( 0.0f, 180.0f, 0.0f );
+		
+		var s = Vector3.one;
+		
+		tf.localScale = s + tf.InverseTransformDirection( dir * 10.0f );
+		
+		prePos = tf.position;
+	}
+	
+}

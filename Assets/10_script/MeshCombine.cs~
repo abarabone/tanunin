@@ -1,0 +1,324 @@
+﻿using UnityEngine;
+using System.Collections;
+
+
+public struct MeshElementsCounter
+{
+
+	public int	vtxLength	{ private set; get; }
+	public int	idxLength	{ private set; get; }
+
+	void count( Mesh srcmesh )
+	{
+		vtxLength	+= srcmesh.vertexCount;
+		idxLength	+= srcmesh.triangles.Length;
+	}
+
+	public MeshElementsCounter( MeshFilter[] mfs )
+	{
+		vtxLength	= 0;
+		idxLength	= 0;
+
+		foreach( var mf in mfs )
+		{
+			count( mf.sharedMesh );
+		}
+	}
+
+	public MeshElementsCounter( MonoBehaviour[] components )
+	{
+		vtxLength	= 0;
+		idxLength	= 0;
+
+		foreach( var component in components )
+		{
+			var mf = component.GetComponentInChildren<MeshFilter>();
+			
+			count( mf.sharedMesh );
+		}
+	}
+
+}
+
+
+// **************************************************************
+
+public abstract class MeshCreator
+{
+	
+	public abstract void alloc( ref MeshElementsCounter mec );
+
+	public abstract void addGeometory( Mesh srcmesh, ref Matrix4x4 mt );
+	public abstract void addGeometory( Mesh srcmesh, int id, ref Matrix4x4 mt );
+	public abstract void addGeometory( Mesh srcmesh, Matrix4x4[] mts );
+
+	public abstract Mesh create();
+
+}
+
+// ---------------------------------------------------
+
+public class SimpleMeshCreator : MeshCreator
+{
+	public int[]		idxs	{ protected set; get; }
+	
+	public Vector3[]	vtxs	{ protected set; get; }
+	public Vector2[]	uvs		{ protected set; get; }
+
+	protected int	ii;
+	protected int	iv;
+	
+	public override void alloc( ref MeshElementsCounter mec )
+	{
+
+		idxs	= new int[ mec.idxLength ];
+
+		vtxs	= new Vector3[ mec.vtxLength ];
+		uvs		= new Vector2[ mec.vtxLength ];
+
+	}
+	
+	protected void addIndices( Mesh srcmesh )
+	{
+
+		var	srcidxs = srcmesh.triangles;
+
+		for( var i = 0; i < srcmesh.triangles.Length; )
+		{
+			idxs[ ii++ ]	= iv + srcidxs[ i++ ];
+			idxs[ ii++ ]	= iv + srcidxs[ i++ ];
+			idxs[ ii++ ]	= iv + srcidxs[ i++ ];
+		}
+
+	}
+
+	private void addVertices( Mesh srcmesh, ref Matrix4x4 mt )
+	{
+
+		var srcvtxs = srcmesh.vertices;
+		var srcuvs	= srcmesh.uv;
+
+		for( var i = 0; i < srcvtxs.Length; i++, iv++ )
+		{
+			vtxs[ iv ]	= mt.MultiplyPoint3x4( srcvtxs[ i ] );
+			uvs[ iv ]	= srcuvs[ i ];
+		}
+
+	}
+
+	public override void addGeometory( Mesh srcmesh, ref Matrix4x4 mt )
+	{
+		addIndices( srcmesh );
+		addVertices( srcmesh, ref mt );
+	}
+	public override void addGeometory( Mesh srcmesh, int id, ref Matrix4x4 mt )
+	{
+		addIndices( srcmesh );
+		addVertices( srcmesh, ref mt );
+	}
+	public override void addGeometory( Mesh srcmesh, Matrix4x4[] mts )
+	{
+		addIndices( srcmesh );
+		addVertices( srcmesh, ref mts[0] );
+	}
+	
+	public override Mesh create()
+	{
+		
+		var dstmesh = new Mesh();
+		
+		dstmesh.vertices	= vtxs;
+		dstmesh.uv			= uvs;
+		
+		dstmesh.triangles	= idxs;
+
+		return dstmesh;
+
+	}
+	
+}
+
+// ---------------------------------------------------
+
+public class NormalMeshCreator : SimpleMeshCreator
+{
+	
+	public Vector3[]	nms		{ protected set; get; }
+	
+	protected bool	noNormal;
+
+	public override void alloc( ref MeshElementsCounter mec )
+	{
+		
+		base.alloc( ref mec );
+		
+		nms	 = new Vector3[ mec.vtxLength ];
+
+	}
+	
+	private void addVertices( Mesh srcmesh, int id, ref Matrix4x4 mt )
+	{
+		
+		var srcvtxs = srcmesh.vertices;
+		var srcuvs	= srcmesh.uv;
+		var srcnms	= srcmesh.normals;
+		
+		if( srcnms == null || srcnms.Length == 0 )
+		{
+			noNormal = true;
+		}
+		
+		if( noNormal )
+		{
+			
+			for( var i = 0; i < srcvtxs.Length; i++, iv++ )
+			{
+				vtxs[ iv ]	= mt.MultiplyPoint3x4( srcvtxs[ i ] );
+				uvs[ iv ]	= srcuvs[ i ];
+			}
+		}
+		else
+		{
+			for( var i = 0; i < srcvtxs.Length; i++, iv++ )
+			{
+				vtxs[ iv ]	= mt.MultiplyPoint3x4( srcvtxs[ i ] );
+				uvs[ iv ]	= srcuvs[ i ];
+				nms[ iv ]	= mt.MultiplyVector( srcnms[ i ] );
+			}
+		}
+
+	}
+	
+	public override void addGeometory( Mesh srcmesh, ref Matrix4x4 mt )
+	{
+		addIndices( srcmesh );
+		addVertices( srcmesh, 0, ref mt );
+	}
+	public override void addGeometory( Mesh srcmesh, int id, ref Matrix4x4 mt )
+	{
+		addIndices( srcmesh );
+		addVertices( srcmesh, id, ref mt );
+	}
+	public override void addGeometory( Mesh srcmesh, Matrix4x4[] mts )
+	{
+		addIndices( srcmesh );
+		addVertices( srcmesh, 0, ref mts[0] );
+	}
+	
+	public override Mesh create()
+	{
+		
+		var dstmesh = new Mesh();
+		
+		dstmesh.vertices	= vtxs;
+		dstmesh.uv			= uvs;
+		dstmesh.normals		= nms;
+		
+		dstmesh.triangles	= idxs;
+
+		if( noNormal )
+		{
+			dstmesh.RecalculateNormals();
+		}
+		
+		return dstmesh;
+		
+	}
+	
+}
+
+// ---------------------------------------------------
+
+public class StructreMeshCreator : NormalMeshCreator
+{
+
+	public Color32[]	bids	{ protected set; get; }
+
+	
+	public override void alloc( ref MeshElementsCounter mec )
+	{
+
+		base.alloc( ref mec );
+
+		bids = new Color32[ mec.vtxLength ];
+
+	}
+
+	private void addVertices( Mesh srcmesh, int id, ref Matrix4x4 mt )
+	{
+		
+		var srcvtxs = srcmesh.vertices;
+		var srcuvs	= srcmesh.uv;
+		var srcnms	= srcmesh.normals;
+
+		if( srcnms == null || srcnms.Length == 0 )
+		{
+			noNormal = true;
+		}
+
+		if( noNormal )
+		{
+
+			for( var i = 0; i < srcvtxs.Length; i++, iv++ )
+			{
+				vtxs[ iv ]	= mt.MultiplyPoint3x4( srcvtxs[ i ] );
+				uvs[ iv ]	= srcuvs[ i ];
+				bids[ iv ]	= new Color32( 0, 0, 0, (byte)id );
+			}
+		}
+		else
+		{
+			for( var i = 0; i < srcvtxs.Length; i++, iv++ )
+			{
+				vtxs[ iv ]	= mt.MultiplyPoint3x4( srcvtxs[ i ] );
+				uvs[ iv ]	= srcuvs[ i ];
+				nms[ iv ]	= mt.MultiplyVector( srcnms[ i ] );
+				bids[ iv ]	= new Color32( 0, 0, 0, (byte)id );
+			}
+		}
+
+	}
+	
+	public override void addGeometory( Mesh srcmesh, ref Matrix4x4 mt )
+	{
+		addIndices( srcmesh );
+		addVertices( srcmesh, 0, ref mt );
+	}
+	public override void addGeometory( Mesh srcmesh, int id, ref Matrix4x4 mt )
+	{
+		addIndices( srcmesh );
+		addVertices( srcmesh, id, ref mt );
+	}
+	public override void addGeometory( Mesh srcmesh, Matrix4x4[] mts )
+	{
+		addIndices( srcmesh );
+		addVertices( srcmesh, 0, ref mts[0] );
+	}
+	
+	public override Mesh create()
+	{
+		
+		var dstmesh = new Mesh();
+		
+		dstmesh.vertices	= vtxs;
+		dstmesh.uv			= uvs;
+		dstmesh.normals		= nms;
+		dstmesh.colors32	= bids;
+		
+		dstmesh.triangles	= idxs;
+		
+	//	if( noNormal )
+		{
+			dstmesh.RecalculateNormals();
+		}
+
+		return dstmesh;
+		
+	}
+	
+}
+
+// ---------------------------------------------------
+
+
+

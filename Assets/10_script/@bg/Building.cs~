@@ -1,0 +1,381 @@
+using UnityEngine;
+using System.Collections;
+
+[RequireComponent(typeof(Rigidbody))]
+public class Building : _StructureBase
+{
+	
+//	public Transform	tf		{ get; protected set; }
+	public Rigidbody	rb		{ get; protected set; }
+	
+//	public GameObject	near	{ get; private set; }
+	public GameObject	far		{ get; private set; }
+	
+//	public StructureMeshRender		nearRender	{ get; set; }
+	public StructureBonedMeshRender	farRender	{ get; set; }
+	
+	public int	partId	{ get; set; }
+	
+	public BuildingBinder	binder	{ private get; set; }
+	
+	
+//	public int	ownedPartsLength	{ get; set; }
+	
+	
+	AudioSource	sound;
+	
+	float	farVisible = 1.0f;
+	
+	bool	moving;
+	bool	wasDestructed;
+	
+	float	sqrBoundRadius;	// 再描画の指針として
+	
+	float	sqrIncreaseMovedInSec;
+	
+	
+	
+//	_StructurePartBase[]	parts	{ set; get; }
+//	int	partsLength;	// parts 中の null 参照以外の実体数
+	
+	public Vector3	offset	{ get; set; }//
+	public float	size	{ get; set; }//
+	
+	
+	public override void attatch( GameObject nearInstance )
+	{
+		
+		near = nearInstance;
+		
+		
+		var tfnear = nearInstance.transform;
+		
+		tfnear.parent = tf;//transform;
+		
+		nearRender = near.GetComponent<StructureMeshRender>();
+		nearRender.structure = this;
+		
+		
+		parts = near.GetComponentsInChildren<BuildingPart>( true );
+		partsLength = parts.Length;
+		
+		
+		nearRender.mr.enabled = false;
+		
+		
+		buildNearColliderInfo();//
+		
+	}
+	
+	
+	public void init()
+	{
+		
+		tf = transform;
+		
+		rb = rigidbody;
+		
+		far = tf.FindChild("far").gameObject;
+		
+		sqrBoundRadius = (size * 0.5f) * (size * 0.5f);//GetComponentInChildren<Collider>().bounds.size.sqrMagnitude;
+		
+		
+		sound = audio;
+		
+	}
+	
+	
+	
+	
+	// 遠近切り替え処理："_"ではじまるのが一度にやるバージョン、"__"が個々一度に、"_p_"が分散処理バージョン "_po_"は１フレームに一戸１ずつ
+	
+	// 外部向け -------------
+	
+	public override void switchToNear()
+	{
+		
+	//	__switchToNear();
+	//	_po_switchToNear();
+		
+		if( near )
+		{
+			setFarVisibility( false, 0.0f );
+			nearRender.mr.enabled = true;
+		//	var mc = near.GetComponent<MeshCollider>()?? near.AddComponent<MeshCollider>();
+		//	mc.sharedMesh = near.GetComponent<MeshFilter>().mesh;
+		}
+	}
+	
+	public override void switchToFar()
+	{
+		
+	//	__switchToFar();
+		_po_switchToFar();
+		
+	}
+	
+	// setActive() 一発版 -------------------
+	
+	protected override void setFarVisibility( bool visibility, float visibilityValue )
+	{
+		farVisible = visibilityValue;
+		farRender.setBoneProperty( partId, tf.position, tf.rotation, visibilityValue );
+		
+		far.SetActive( visibility );
+	}
+	
+	
+	
+	
+	public override enType blasted( float damage, float pressure, float boringFactor, Vector3 center, float radius, int teamFlag )
+	{
+		
+	//	var expdir = (tf.position - center).normalized;
+		
+		for( var i = partsLength; i-- > 0; )
+		{
+			var p = parts[i];
+			
+			if( p && Random.value > 0.8f )
+			{
+				
+				p.gameObject.SetActive( true );
+				
+				var expdir = ( p.tf.position - tf.position );//.normalized;
+				
+				p.shot( damage, 100.0f, expdir, tf.position, p.startTriangle, teamFlag );
+				
+			}
+		}
+		
+		
+		// 破壊チェックは shot() 経由で行われている
+		
+		
+		if( binder != null ) binder.bindOff( this );
+		
+		wakeUp();
+		
+		
+		rb.AddExplosionForce( pressure * 100.0f, center, radius, 1.0f, ForceMode.Impulse );//
+		
+		
+		return enType.softStuff;
+		
+	}
+	
+	
+	
+	void OnCollisionEnter( Collision col )
+	// 何かと（エンベロープが）衝突した場合、とにかくシェーダーへ位置情報をセットする。
+	{
+		
+		if( ((1 << col.collider.gameObject.layer) & (UserLayer.bgField | UserLayer.bgEnvelope)) != 0 )
+		{
+			
+			var otherRigidBody = col.collider.attachedRigidbody;
+			
+			var other = ( otherRigidBody )? otherRigidBody.gameObject: col.collider.gameObject;
+			
+			
+			var	otherSound = other.audio;
+			
+			if( !otherSound || otherSound && !otherSound.isPlaying )
+			// 相手側が音声を出してない時だけ衝突音を出し、ダメージゾーンを発生する
+			{
+				
+				sound.PlayDelayed( 0.0f );
+				
+				checkDamageZone( col );
+				
+			}
+			
+		//	if( !rb.isKinematic && !moving ) StartCoroutine( setShaderProperty() );
+			
+			wakeUp();
+		}
+		
+	}
+
+	void checkDamageZone( Collision col )
+	{
+		
+		if( sqrIncreaseMovedInSec > 80.0f )
+		{
+		//	Debug.Log( sqrIncreaseMovedInSec );
+			
+			var rspeed = col.relativeVelocity.magnitude;
+			
+			var otherRb = col.collider.attachedRigidbody;
+			var otherMass = otherRb? otherRb.mass: 0.0f;
+			
+			var damage = (rb.mass + otherMass) * 0.5f * rspeed;
+			
+			var damegeZoneSize = size * 0.5f;
+				
+			foreach( var cont in col.contacts )
+			{
+				Destroy( Instantiate( SystemManager.largeSmokePrefab, cont.point, Quaternion.identity ), 1.0f );
+				
+				
+				var hits = Physics.OverlapSphere( cont.point, damegeZoneSize, UserLayer.enemyEnvelope );
+				
+				foreach( var hit in hits )
+				{//Debug.Log( damage +" "+ hit.collider.name );
+					var hp = hit.attachedRigidbody.GetComponent<_HitProcessBase>();
+					
+					hp.shot( damage, 0.0f, Vector3.zero, cont.point, 0, 0 );
+				}
+			}
+		}
+	}
+	
+	
+	IEnumerator setShaderProperty()
+	// エリア遠距離モデル描画のために、一定期間シェーダプロパティをセットし続ける
+	{
+		moving = true;
+		
+		var prepos = tf.position;
+		var sqrmoved = 0.0f;
+		
+		
+		var imprepos = prepos;
+		sqrIncreaseMovedInSec = 0.0f;
+		do
+		{
+			
+			if( !nearRender.mr.enabled && farRender.mr.isVisible )
+			// 剛体がスリープになるまで、毎フレーム（視錐台にある時のみ）姿勢情報をシェーダにセットし続ける。
+			{
+	//			Debug.Log("v");
+				farRender.setBoneProperty( partId, tf.position, tf.rotation, farVisible );
+				farRender.encapsulateBounds( tf, offset, size );//
+			}
+			
+			sqrIncreaseMovedInSec += ( tf.position - imprepos ).sqrMagnitude * ( 1.0f / Time.deltaTime );
+			imprepos = tf.position;
+			
+			if( tf.position.y < -200.0f )
+			// 延々と落下するのを防止する
+			{
+				Destroy( gameObject );
+				farVisible = 0.0f;
+				
+				break;
+			}
+			
+			yield return 0;
+		}
+		while( !rb.IsSleeping() );
+		
+		// 最後にもう一回
+		farRender.setBoneProperty( partId, tf.position, tf.rotation, farVisible );
+		farRender.encapsulateBounds( tf, offset, size );//
+		
+		
+	//	changeEnvelopeLayer( UserLayer._bgEnvelope, UserLayer._bgSleepEnvelope );
+		rb.isKinematic = true;
+		// 空中のものが自動で落下できなくなるのでもどせない　蟻が張り付くと動いちゃうけど仕方ない…
+		// やっぱ現状許容する
+		
+		
+		if( (tf.position - prepos).sqrMagnitude > sqrBoundRadius ) farRender.requestRecalculateAllBounds( 30.0f );// 再計算をゆるく促す。
+	//	farRender.requestRecalculateAllBounds( 60.0f );// 再計算をゆるく促す。
+		
+		moving = false;
+	}
+	
+	
+	
+	void OnDestroy()
+	{
+		
+		if( farRender.gameObject.activeInHierarchy )
+		{
+			farRender.requestRecalculateAllBounds( 30.0f );// 再計算をゆるく促す。
+			
+		//	Debug.Log( "dest" );
+		}
+		
+		farRender.setBoneProperty( partId, tf.position, tf.rotation, 0.0f );
+		
+		if( binder ) binder.checkDestroy();// バインダーをペアレント解除していない場合ここで破壊する
+		
+	}
+	
+	
+	public override void destruct( bool playSound )
+	{
+		if( !wasDestructed )
+		{
+			
+			if( playSound ) sound.PlayDelayed( 0.0f );
+			
+			
+			var tfSmoke = ((GameObject)Instantiate( SystemManager.largeSmokeOnDestructPrefab )).transform;
+			
+			tfSmoke.parent = tf;
+			tfSmoke.localPosition = offset;
+			
+			
+			changeEnvelopeLayer( UserLayer._bgEnvelope, UserLayer._bgSleepEnvelope );
+			for( var i = tf.childCount; i-- > 0; )
+			{
+				var go = tf.GetChild(i).gameObject;
+				
+				if( ((1 << go.layer) & (UserLayer.bgSleepEnvelope | UserLayer.bgEnvelope)) != 0 )
+				{
+					Destroy( go );
+				}
+			}
+			
+			if( binder != null ) binder.bindOff( this );
+			
+			wakeUp();// false );
+			
+			
+			wasDestructed = true;
+			
+			Destroy( gameObject, 5.0f );
+			
+		}
+	}
+	
+	
+	public void wakeUp( bool makeHitable = true )
+	{
+	//	if( binder != null )
+	//	{
+	//		binder.bindOff();
+	//	}
+	//	else
+		{
+			
+			if( rb.isKinematic )
+			{
+				if( makeHitable ) changeEnvelopeLayer( UserLayer._bgSleepEnvelope, UserLayer._bgEnvelope );
+				
+				rb.isKinematic = false;
+				rb.useGravity = true;
+				rb.WakeUp();
+			}
+			
+			if( !moving ) StartCoroutine( setShaderProperty() );
+		}
+	}
+	
+	void changeEnvelopeLayer( int from, int to )
+	{
+		for( var i = tf.childCount; i-- > 0; )
+		{
+			
+			var go = tf.GetChild(i).gameObject;
+			
+			if( go.layer == from ) go.layer = to;
+			
+		}
+	}
+}
+
+

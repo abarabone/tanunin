@@ -1,0 +1,72 @@
+using UnityEngine;
+using System.Collections;
+
+using ul = UserLayer;
+
+
+public class BulletSL00 : BulletBase
+{
+	
+	public float bulletSpeed;
+	public float bulletSize;
+	public float bulletSwing;
+	public float bulletNoize;
+	
+	public float damage;//
+	
+	protected Quaternion	rotFoward;
+	
+	
+	
+	void Start()
+	{
+		
+		rotFoward	= tf.rotation;
+		
+		prePos = tf.position;
+		
+		transform.localScale = Vector3.one * bulletSize;
+		
+	}
+	
+	
+	
+	void Update()
+	{
+		
+	//	tf.position = tf.position + tf.forward * bulletSpeed * Time.deltaTime;
+		
+		var fowardVec = Vector3.forward * bulletSpeed;
+		var swingVec = Random.insideUnitCircle * bulletSwing;
+		var vec = fowardVec + new Vector3( swingVec.x, swingVec.y, 0.0f );
+		
+		tf.position += rotFoward * vec * Time.deltaTime;
+		
+		
+		var move = tf.position - prePos;
+		
+		var ray = new Ray(  prePos, move );
+		
+		RaycastHit	res;
+		
+		if( Physics.Raycast( ray, out res, move.magnitude, ul.bulletHitable ) )
+		{
+			
+			landingPrefab.emitExplode( res.point, res.normal );//
+			
+			Destroy( gameObject );
+			
+			
+			var hp = res.transform.GetComponent<HitProcessing>();
+			
+			if( hp ) hp.struck( damage );
+			
+		}
+		
+		
+		prePos = tf.position;
+		
+		rangeProcessing( move.magnitude );
+	}
+	
+}

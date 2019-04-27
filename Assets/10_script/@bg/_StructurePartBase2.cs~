@@ -1,0 +1,59 @@
+using UnityEngine;
+using System.Collections;
+
+public abstract class _StructurePartBase2 : MonoBehaviour//_HitProcessBase
+{
+
+	
+	public int			partId	{ get; protected set; }
+
+	public Transform	tf		{ get; protected set; }
+
+
+	public _StructurePartBase2[]	children;//	{ get; protected set; }
+
+	
+	public float	radius			{ get; private set; }
+
+	public int		startTriangle	{ get; private set; }
+	public int		triangleLength	{ get; private set; }
+
+	
+
+	public void setMeshInfo( int startTri, int triLength, float r )
+	{
+		startTriangle	= startTri;
+		triangleLength	= triLength;
+		radius			= r;
+	}
+
+	public virtual void init( int id )
+	{
+
+		partId		= id;
+
+		tf			= transform;
+
+		children = this.getComponentsInDirectChildren<_StructurePartBase2>();
+
+	}
+
+	public virtual void fallDown( StructureBreakController breaker, float pressure, Vector3 direction, Vector3 point )
+	{
+		
+		breaker.structure.nearRender.setPartVisibilityOff( partId );
+
+		breaker.breakProcess( this, pressure, direction, point );
+
+
+		foreach( var child in children )
+		{
+			if( child != null && breaker.structure.nearRender.isVisible( child.partId ) )
+			{
+				child.fallDown( breaker, pressure, direction, point );
+			}
+		}
+
+	}
+
+}

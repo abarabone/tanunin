@@ -1,0 +1,76 @@
+using UnityEngine;
+using System.Collections;
+
+public class BuildingPart : _StructurePartBase
+{
+	
+	
+	
+	public override enType shot( float damage, float pressure, Vector3 direction, Vector3 point, int hitIndex, int teamFlag )
+	{
+	//	Debug.Log( gameObject.name );
+		if( childId == -1 ) return enType.softStuff;
+		
+		
+		if( damage > 0.0f )
+		{
+			
+			var building = nearRender.structure;
+			
+			
+			nearRender.setPartVisibilityOff( partId );gameObject.SetActive(true);//
+			
+			mr.enabled = true;
+			
+			building.checkDstroyPartCount( childId );
+			
+			
+			foreach( var child in children )
+			{
+				if( child && child.childId != -1 )
+				{
+					nearRender.setPartVisibilityOff( child.partId );child.gameObject.SetActive(true);//
+					
+					child.mr.enabled = true;
+					
+					building.checkDstroyPartCount( child.childId );
+				}
+			}
+			
+			
+			if( building.partsLength < building.parts.Length >> 1 )
+			{
+				building.destruct( true );
+			}
+			
+			
+		//	tf.parent = null;
+			
+			
+			if( !rb ) rb = gameObject.AddComponent<Rigidbody>();
+			
+			rb.isKinematic = false;
+			rb.detectCollisions = false;
+			rb.useGravity = true;
+			rb.WakeUp();
+			
+		//	GetComponent<Collider>().enabled = false;
+			
+			rb.AddForceAtPosition( pressure * 0.01f * direction, point, ForceMode.Impulse );
+			
+			Destroy( gameObject, 2.0f );
+			
+		}
+		
+		return enType.softStuff;
+		
+	}
+	
+	public override enType fired( float damage, int teamFlag )
+	{
+		
+		return enType.softStuff;
+		
+	}
+	
+}

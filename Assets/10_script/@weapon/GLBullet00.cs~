@@ -1,0 +1,52 @@
+using UnityEngine;
+using System.Collections;
+
+using ul = UserLayer;
+
+
+public class GLBullet00 : MonoBehaviour
+{
+	
+	public Transform	tf;
+	public Rigidbody	rb;
+	
+	public ExplosionBase	explosion;
+		
+	protected Vector3	prePos;
+	
+	
+	void Start()
+	{
+		
+//		rb.AddForce( tf.forward * 30.0f, ForceMode.VelocityChange );
+		
+		prePos = rb.position;
+		
+	}
+	
+	
+	void FixedUpdate()
+	{
+		
+		var move = rb.position - prePos;
+		
+		var ray = new Ray(  prePos, move );
+		
+		RaycastHit	res;
+		
+		if( Physics.Raycast( ray, out res, move.magnitude, ul.notBulletHitable ) )
+		{
+			
+		//	Instantiate( explosion, res.point, Quaternion.identity );
+			
+			explosion.explode( res.point, Quaternion.identity );
+			
+			Destroy( gameObject );
+			
+		}
+		
+		
+		prePos = rb.position;
+	}
+	
+}

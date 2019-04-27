@@ -1,0 +1,1337 @@
+using UnityEngine;
+using System.Collections;
+
+public class SystemManager : MonoBehaviour
+{
+	
+	
+	public ActivityGroup	groupPrefab;
+	
+	public GameObject			_largeSmokePrefab;
+	public static GameObject	largeSmokePrefab	{ get{ return entity._largeSmokePrefab; } }
+	
+	public GameObject			_largeSmokeOnDestructPrefab;
+	public static GameObject	largeSmokeOnDestructPrefab	{ get{ return entity._largeSmokeOnDestructPrefab; } }
+	
+	public Material			_matRoad;//暫定
+	public static Material	matRoad	{ get{ return entity._matRoad; } }//暫定
+	
+	public GameObject			_roadBreakPrefab;
+	public static GameObject	roadBreakPrefab	{ get{ return entity._roadBreakPrefab; } }
+	
+	public GameObject			_cutcablePrefab;
+	public static GameObject	cutcablePrefab	{ get{ return entity._cutcablePrefab; } }
+
+	
+	public string[]		musicUrls;
+	
+	
+	public static GroupMaster	groups	= new GroupMaster();
+	
+	public static EnemyMaster	enemys	= new EnemyMaster();
+	
+	public static MusicMaster	music = new MusicMaster();
+	
+	
+	
+	static SystemManager	entity;
+	
+	static public _ActionBase	player;// 超暫定
+	
+	
+	static public CharacterTemplateHolder	characterHolder;
+	
+//	static public StructureTemplateHolder	buildingHolder;
+	static public StructureTemplateHolder2	buildingHolder;
+	
+//	static public StructureTemplateHolder	plotHolder;
+	static public StructureTemplateHolder2	plotHolder;
+	
+	
+	static public District	district;
+	
+	static public Transform	tfUtilScaleZero;
+	
+	
+	static public void startCoroutine( IEnumerator proc )
+	{
+		entity.StartCoroutine( proc );
+	}
+	
+	
+	void Awake()
+	{
+		
+		entity = this;
+		
+		var tf = transform;
+		
+		
+		ActivityGroup.freeGroup = GameObject.Find( "enemyGroupFree" ).GetComponent<ActivityGroup>();
+		
+		
+	//	buildingHolder	= tf.Find( "holder building" ).GetComponent<StructureTemplateHolder>();
+		buildingHolder	= tf.Find( "holder building" ).GetComponent<StructureTemplateHolder2>();
+				
+	//	plotHolder		= tf.Find( "holder plot" ).GetComponent<StructureTemplateHolder>();
+	//	plotHolder		= tf.Find( "holder plot" ).GetComponent<StructureTemplateHolder2>();
+		
+		characterHolder	= tf.Find( "holder character" ).GetComponent<CharacterTemplateHolder>();
+		
+		
+		district	= GameObject.Find( "district" ).GetComponent<District>();
+		
+		district.init();
+		
+		
+		tfUtilScaleZero = tf.Find( "util scale zero" );
+		
+		
+		enemys.init( tf.Find( "IFCamera/enemy counter" ).guiText );//
+		
+		
+		groups.init( groupPrefab );
+		
+		
+		music.init( audio, musicUrls );
+		
+		
+		
+		Resources.UnloadUnusedAssets();
+
+		System.GC.Collect();
+		System.GC.WaitForPendingFinalizers();
+		System.GC.Collect();
+
+	}
+	
+	void Start()
+	{
+		
+	//	var enemys = GameObject.FindGameObjectsWithTag( "enemy" );
+		
+	//	enemyCount = enemys.Length;
+		
+		player = GameObject.FindGameObjectWithTag( "player" ).GetComponent<PcAction>();// 超暫定
+		
+		eventMake2();//
+	}
+	IEnumerator sss()
+	{
+		
+		var www = new WWW("http://translate.google.com/translate_tts?tl=ja&q=このやろう");
+		
+		yield return www;
+		
+		audio.PlayOneShot( www.GetAudioClip( false, true, AudioType.OGGVORBIS ) );
+		
+	}
+	
+	void Update()
+	{
+		
+		if( Input.GetKeyDown(KeyCode.Escape) || GamePad.requestMenuOpen )
+		{
+			var parseIF = transform.Find( "UIcameraPers" ).gameObject;
+			parseIF.SetActive( !parseIF.activeSelf );
+			
+			var orthoIF = transform.Find( "IFCamera" ).gameObject;
+			orthoIF.SetActive( !orthoIF.activeSelf );
+			
+			GetComponent<GamePad>().enabled = orthoIF.activeSelf;
+			
+			GamePad.requestMenuOpen = false;
+		}
+		
+		
+		music.checkPlayLoop();
+		
+	}
+	
+	
+	
+	public static void gotoMissionClear()
+	{
+	//	EventMaster.setEnable( false );
+		
+		entity.StartCoroutine( entity.viewMissionClear() );
+	}
+	
+	
+	static public bool missionCleared;//
+	
+	IEnumerator viewMissionClear()
+	{
+		
+		yield return new WaitForSeconds( 1.0f );
+		
+		if( EventMaster.hasNoEvent && enemys.count <= 0 )
+		{
+			missionCleared = true;//
+			
+			Application.ExternalCall( "sp", "この局面を生き残るなんて、。あなたは一体、？" );
+			
+			
+			var text = entity.transform.Find( "IFCamera/mission clear" ).guiText;
+			
+			
+			yield return new WaitForSeconds( 3.0f );
+			
+			float limit = Time.time + 8.0f;
+			
+			
+			text.fontSize = 500;
+			
+			text.gameObject.SetActive( true );
+			
+			for(;;)
+			{
+				yield return 0;
+				
+				text.fontSize += (100 - text.fontSize) >> 4;
+				
+				if( Time.time > limit ) break;
+			}
+			
+			for(;;)
+			{
+				yield return 0;
+				
+				text.fontSize -= text.fontSize >> 3;
+				
+				if( text.fontSize < 10 ) break;
+			}
+			
+			text.gameObject.SetActive( false );
+			
+		//	yield return new WaitForSeconds( 3.0f );
+			
+		//	Application.Quit();
+			
+		}
+	}
+	
+	void eventMake3()
+	{
+		// 一波　中央１匹
+		var c0 = EventMaster.createWaitTimeCondition();
+		var e0 = EventMaster.createEvent< EventCreateGroup >();
+
+		e0.group.center		= Vector3.zero;
+		e0.group.territory	= 50.1f;
+		e0.member.characterPrefab = characterHolder.prefabList.prefabActions[2];
+		e0.spawn.number		= 1;
+		
+		c0.applyTo( e0 );
+		e0.startup();
+		
+		var t0 = e0.issue();
+	}
+
+	void eventMake2()
+	{
+		// 一波　中央１匹
+		var e0 = EventMaster.createEvent< EventCreateGroup >();
+
+		e0.waitTime = 3.0f;
+		e0.group.center		= Vector3.zero;
+		e0.group.territory	= 50.1f;
+		e0.member.characterPrefab = characterHolder.prefabList.prefabActions[0];
+		e0.spawn.number		= 1;
+
+		e0.startup();
+
+		var t0 = e0.issue();
+		
+
+		var e01= t0.createEvent< EventAddOneMemberToGroup >();
+
+		e01.waitTime = 10.0f;
+		e01.member.characterPrefab = characterHolder.prefabList.prefabActions[3];
+
+		e01.startup();
+
+		var t01 = e01.issue();
+		
+
+		var c1 = t01.createCondition< ConditionRemainLife >();
+		var e1 = EventMaster.createEvent< EventCreateGroup >();
+		
+		c1.remainLife = 2700.0f;
+		
+		e1.group.center				= Vector3.zero;
+		e1.member.characterPrefab	= characterHolder.prefabList.prefabActions[0];
+		e1.member.domination		= _EnemyActionBase.enDisposition.high;
+		e1.spawn.number = 5;
+		
+		c1.applyTo( e1 );
+		e1.startup();
+
+		
+		var c91 = e1.issue().createCondition< ConditionRemainMemberInGroup >();
+		var e91 = EventMaster.createEvent< EventPlayMusic >();
+
+		c91.remainCount = 2;
+
+		e91.clipId = 0;
+		e91.delay = 0.0f;
+		
+		c91.applyTo( e91 );
+		e91.startup();
+}
+	
+	void voice<T>( string text, MEventTargetLinker<T> targ, float wait = 0.0f ) where T:class,IMissionEventable
+	{
+		var cv = targ.createCondition< ConditionTargetCreated<T> >();
+		var ev = EventMaster.createEvent< EventTextToSpeech >();
+		
+		ev.text	= text;
+		ev.waitTime	= wait;
+		
+		cv.applyTo(ev);
+	}
+	void voiceOverGroup( string text, MEventTargetLinker<ActivityGroup> targ, float wait = 0.0f )
+	{
+		var cv = targ.createCondition< ConditionRemainMemberInGroup >();
+		var ev = EventMaster.createEvent< EventTextToSpeech >();
+		
+		ev.text	= text;
+		ev.waitTime	= wait;
+		
+		cv.applyTo(ev);
+	}
+
+	void eventMake()
+	{
+		
+		// 一波　中央８匹
+		var e0 = EventMaster.createEvent< EventCreateGroup >();
+		
+		e0.group.center				= Vector3.zero;
+		e0.group.territory			= 50.1f;
+		e0.member.characterPrefab	= characterHolder.prefabList.prefabActions[0];
+		e0.spawn.number 			= 8;
+		e0.waitTime = 5.1f;
+
+		e0.startup();
+
+		var t0 = e0.issue();
+		
+		voice( "敵８体がエリア中央に出現しました。速やかに殲滅してください。", t0, 1.0f );
+		voice( "私は今回より試験的に導入された、オペレーターＡＩです。以後、宜しくお願いします。", t0, 15.0f );
+		
+/*		
+		// ２波　森２０匹
+		var c1 = t0.createCondition< ConditionRemainMemberInGroup >();
+		var e1 = EventMaster.createEvent< EventCreateGroup >();
+		
+		e1.group.center				= new Vector3( -210.0f, 10.0f, -210.0f );
+		e1.group.territory			= 30.2f;
+		e1.group.arrowProtrusion	= 40.0f;
+		e1.member.characterPrefab	= characterHolder.prefabList.prefabActions[0];
+		e1.spawn.number				= 20;
+		e1.waitTime = 5.2f;
+		
+		c1.onceArrivalMember = 1;
+		c1.remainCount = 3;
+
+		c1.applyTo( e1 );
+		e1.startup();
+
+		var t1 = e1.issue();
+*/		
+		
+		// ３波　蟻５匹
+		var c2 = t0.createCondition< ConditionRemainMemberInGroup >();
+		var e2 = EventMaster.createEvent< EventCreateGroup >();
+		
+		e2.group.center = new Vector3( 121.0f, 18.0f, 70.0f );
+		e2.group.territory = 50.3f;
+		e2.member.characterPrefab = characterHolder.prefabList.prefabActions[0];
+		e2.spawn.number = 5;
+		e2.waitTime = 5.3f;
+		
+		c2.onceArrivalMember = 1;
+		c2.remainCount = 0;
+
+		c2.applyTo( e2 );
+		
+		var t2 = e2.issue();
+		
+		voice( "え、緊張感ですか？、　あ　す　すみません、以後努力してみます。", t2, 5.0f );
+		
+		
+		// ４波　蟻１０匹キャリア
+		var c3 = t2.createCondition< ConditionRemainMemberInGroup >();
+		var e3 = EventMaster.createEvent< EventCreateGroupGate >();
+		
+		e3.gatePrefab			= (EnemysGate)prefabs[0];
+		e3.member.characterPrefab	= characterHolder.prefabList.prefabActions[0];
+		e3.startPoint		= new Vector3( 260.0f, 100.0f, 0.0f );
+		e3.endPoint			= new Vector3( -160.0f, 30.0f, 70.0f );
+		e3.group.territory		= 50.4f;
+		e3.spawn.number		= 10;
+		e3.emitStartTime	= 3.0f;
+		e3.spawn.interval	= 3.0f;
+		e3.maxSpeed			= 10.0f;
+		e3.readyEmit		= true;//false;
+		
+		c3.onceArrivalMember = 1;
+		c3.remainCount = 0;
+
+		c3.applyTo( e3 );
+		
+		var t3 = e3.issue();
+		
+		voice( "上空に敵輸送船を発見。", t3, 2.0f );
+		
+		
+		// ５波　大蟻３匹キャリア
+		var c4 = t3.createCondition< ConditionRemainMemberInGroup >();
+		var e4 = EventMaster.createEvent< EventCreateGroupGate >();
+		
+		e4.gatePrefab			= (EnemysGate)prefabs[0];
+		e4.member.characterPrefab	= characterHolder.prefabList.prefabActions[2];
+		e4.startPoint		= new Vector3( -189.0f, 130.0f, -20.0f );
+		e4.endPoint			=  new Vector3( -189.0f, 5.0f, -20.0f );
+		e4.group.territory		= 50.5f;
+		e4.spawn.number		= 3;
+		e4.emitStartTime	= 3.0f;
+		e4.spawn.interval	= 1.0f;
+		e4.maxSpeed			= 20.0f;
+		e4.readyEmit		= false;
+		e4.waitTime			= 5.6f;
+		
+		c4.onceArrivalMember = 1;
+		c4.remainCount = 0;
+
+		c4.applyTo( e4 );
+		
+		var t4 = e4.issue();
+		
+		voice( "この地区では見かけない反応です。たいせん期の巨大こうかくちゅうと同格の個体が出現してるようです。気をつけてください。", t4, 1.0f );
+		
+		voice( "すみません、若干嬉しそうに聞こえるかもしれませんが、喜んでいるわけではないのです。もともと接客用に開発されたＡＩですから、ご容赦願います。", t4, 20.0f );
+		
+		
+		// ６波　ＧＲ蟻２匹キャリア
+		var c5 = t3.createCondition< ConditionRemainMemberInGroup >();
+		var e5 = EventMaster.createEvent< EventCreateGroupGate >();
+		
+		e5.gatePrefab			= (EnemysGate)prefabs[2];
+		e5.member.characterPrefab	= characterHolder.prefabList.prefabActions[3];
+		e5.startPoint	= new Vector3( -50.0f, 150.0f, 189.0f );
+		e5.endPoint		= new Vector3( -50.0f, 25.0f, 189.0f );
+		e5.group.territory	= 50.6f;
+		e5.spawn.number	= 2;
+		e5.emitStartTime= 3.0f;
+		e5.spawn.interval= 1.0f;
+		e5.maxSpeed		= 20.0f;
+		e5.readyEmit	= false;
+		e5.waitTime		= 5.6f;
+		
+		c5.onceArrivalMember = 1;
+		c5.remainCount = 0;
+
+		c5.applyTo( e5 );
+		
+		var t5 = e5.issue();
+		
+		
+		// ７波　ＧＲ蟻２匹キャリア
+		var c6 = t3.createCondition< ConditionRemainMemberInGroup >();
+		var e6 = EventMaster.createEvent< EventCreateGroupGate >();
+		
+		e6.gatePrefab			= (EnemysGate)prefabs[2];
+		e6.member.characterPrefab	= characterHolder.prefabList.prefabActions[3];
+		e6.startPoint	= new Vector3( 5.0f, 130.0f, -232.0f );
+		e6.endPoint		= new Vector3( 5.0f, 5.0f, -232.0f );
+		e6.group.territory	= 50.7f;
+		e6.spawn.number	= 2;
+		e6.emitStartTime= 3.0f;
+		e6.spawn.interval= 1.0f;
+		e6.maxSpeed		= 20.0f;
+		e6.readyEmit	= false;
+		e6.waitTime		= 5.6f;
+		
+		c6.onceArrivalMember = 1;
+		c6.remainCount = 0;
+
+		c6.applyTo( e6 );
+		
+		var t6 = e6.issue();
+		
+
+		// ８波　王蟻１匹
+		var c7 = new ConditionCompositionUnit();
+		var e7 = EventMaster.createEvent< EventCreateGroup >();
+		
+		e7.group.center = new Vector3( 200.0f, 0.0f, -20.0f );
+		e7.group.territory = 180.8f;
+		e7.member.characterPrefab = characterHolder.prefabList.prefabActions[1];
+		e7.spawn.number = 1;
+		e7.waitTime = 10.0f;
+		
+		var c70 = t4.createCondition< ConditionRemainMemberInGroup >();
+		var c71 = t5.createCondition< ConditionRemainMemberInGroup >();
+		var c72 = t6.createCondition< ConditionRemainMemberInGroup >();
+		
+		c70.onceArrivalMember = 1;
+		c71.onceArrivalMember = 1;
+		c72.onceArrivalMember = 1;
+		
+	//	e7.applyTo(c7);
+	//	c7.applyTo(c70).registTo(t4);
+	//	c7.applyTo(c71).registTo(t5);
+	//	c7.applyTo(c72).registTo(t6);
+
+		c70.applyTo( c7 );
+		c71.applyTo( c7 );
+		c72.applyTo( c7 );
+		c7.cascadeTo( e7 );
+		e7.startup();
+
+		var t7 = e7.issue();
+		
+		voice( "これは、なんでしょう、とても大きな反応です。あれは、ああ！そんな、！", t7, 2.0f );
+		voiceOverGroup( "こんなに大きな個体をたった一人で倒すなんて、。お見事です！", t7, 3.0f );
+		voiceOverGroup( "しかし、たいせん後、このように巨大な個体が発生した記録はなかったはず、。突然変異体なのでしょうか。", t7, 10.0f );
+		
+/*
+		
+//		// ダミー
+//		var c0 = new ConditionWaitTime();
+//		var e0 = new EventCreateGroup();
+//		
+//		e0.group.center = Vector3.zero;
+//		e0.group.territory = 50.1f;
+//		e0.member.characterPrefab = characterHolder.prefabList.prefabActions[0];
+//		e0.spawn.number = 1;
+//	//	e0.spawn.interval = 20.0f;
+//		
+//		c0.waitTime = 5.0f;
+//		
+//		e0.applyTo(c0).registToWaitTimer();
+//		
+//	//	var t0 = e0.issue();
+//		var t39 = e0.issue();
+
+
+
+		// １波　１＋１０匹
+		var c21 = new ConditionRemainMemberInGroup();
+		var e210 = new EventCreateGroup();
+		var e211 = new EventAddMembersToGroup();
+		
+		e210.waitTime = 30.0f;
+		
+		e210.group.center = new Vector3( -174.0f, 37.0f, 226.0f );
+		e210.member.characterPrefab = characterHolder.prefabList.prefabActions[0];
+		e210.spawn.number = 1;
+		e210.member.isLeader = true;
+		e210.member.wakeUpInBattle = true;
+		e210.member.domination = _EnemyActionBase.enDisposition.high;
+		
+		e211.member.characterPrefab = characterHolder.prefabList.prefabActions[0];
+		e211.spawn.number = 15;
+		e211.member.wakeUpInBattle = true;
+		e211.member.domination = _EnemyActionBase.enDisposition.high;
+		
+		e210.applyTo(c21).registTo(t7);
+		
+		var t21 = e210.issue();
+		
+		t21.deliverTo(e211);
+		
+		
+		// ２波　ＧＲ１＋１０匹
+		var c22 = new ConditionRemainMemberInGroup();
+		var e220 = new EventCreateGroup();
+		var e221 = new EventAddMembersToGroup();
+		
+		e220.group.center = new Vector3( 209.0f, 43.0f, 227.0f );
+		e220.member.characterPrefab = characterHolder.prefabList.prefabActions[3];
+		e220.spawn.number = 1;
+		e220.member.isLeader = true;
+		e220.member.wakeUpInBattle = true;
+		e220.member.domination = _EnemyActionBase.enDisposition.high;
+		
+		e221.member.characterPrefab = characterHolder.prefabList.prefabActions[0];
+		e221.spawn.number = 15;
+		e221.member.wakeUpInBattle = true;
+		e220.member.domination = _EnemyActionBase.enDisposition.high;
+		
+		e220.applyTo(c22).registTo(t21);
+		
+		var t22 = e220.issue();
+		
+		t22.deliverTo(e221);
+		
+		
+		// ３波　大蟻１＋１０匹
+		var c23 = new ConditionRemainMemberInGroup();
+		var e230 = new EventCreateGroup();
+		var e231 = new EventAddMembersToGroup();
+		
+		e230.group.center = new Vector3( 194.0f, 6.0f, -187.0f );
+		e230.member.characterPrefab = characterHolder.prefabList.prefabActions[2];
+		e230.spawn.number = 1;
+		e230.member.isLeader = true;
+		e230.member.wakeUpInBattle = true;
+		e230.member.domination = _EnemyActionBase.enDisposition.high;
+		
+		e231.member.characterPrefab = characterHolder.prefabList.prefabActions[0];
+		e231.spawn.number = 15;
+		e231.member.wakeUpInBattle = true;
+		e231.member.domination = _EnemyActionBase.enDisposition.high;
+		
+		e230.applyTo(c23).registTo(t22);
+		
+		var t23 = e230.issue();
+		
+		t23.deliverTo(e231);
+		
+		
+		// ４波　蟻５匹
+		var c24 = new ConditionRemainMemberInGroup();
+		var e24 = new EventCreateGroup();
+		
+		e24.group.center = Vector3.zero;
+		e24.group.territory = 100.0f;
+		e24.member.characterPrefab = characterHolder.prefabList.prefabActions[0];
+		e24.spawn.number = 5;
+		
+		e24.applyTo(c24).registTo(t23);
+		
+		var t24 = e24.issue();
+		
+		voiceOverGroup( "注意してください！　敵輸送船四隻に囲まれています！", t24, 0.0f );
+		
+		
+		
+		// ５波　蟻８匹キャリア
+		var c25 = new ConditionRemainMemberInGroup();
+		var e25 = new EventCreateGroupGate();
+		
+		e25.gatePrefab				= (EnemysGate)prefabs[0];
+		e25.member.characterPrefab	= characterHolder.prefabList.prefabActions[0];
+		e25.startPoint		= new Vector3( -250.0f, 60.0f, -250.0f );
+		e25.endPoint		= new Vector3( -250.0f, 60.0f, 250.0f );
+		e25.group.territory		= 70.4f;
+		e25.spawn.number	= 8;
+		e25.emitStartTime	= 3.0f;
+		e25.spawn.interval	= 2.0f;
+		e25.maxSpeed		= 20.0f;
+		e25.readyEmit		= true;//false;
+		e25.member.wakeUpInBattle = true;
+		
+		e25.applyTo(c25).registTo(t24);
+		
+		var t25 = e25.issue();
+		
+		
+		
+		// ６波　蟻８匹キャリア
+		var c26 = new ConditionRemainMemberInGroup();
+		var e26 = new EventCreateGroupGate();
+		
+		e26.gatePrefab				= (EnemysGate)prefabs[2];
+		e26.member.characterPrefab	= characterHolder.prefabList.prefabActions[0];
+		e26.startPoint		= new Vector3( -250.0f, 60.0f, 250.0f );
+		e26.endPoint		= new Vector3( 250.0f, 60.0f, 250.0f );
+		e26.group.territory		= 70.4f;
+		e26.spawn.number	= 8;
+		e26.emitStartTime	= 3.0f;
+		e26.spawn.interval	= 2.0f;
+		e26.maxSpeed		= 20.0f;
+		e26.readyEmit		= true;//false;
+		e26.member.wakeUpInBattle = true;
+		
+		e26.applyTo(c26).registTo(t24);
+		
+		var t26 = e26.issue();
+		
+		
+		// ７波　蟻８匹キャリア
+		var c27 = new ConditionRemainMemberInGroup();
+		var e27 = new EventCreateGroupGate();
+		
+		e27.gatePrefab				= (EnemysGate)prefabs[0];
+		e27.member.characterPrefab	= characterHolder.prefabList.prefabActions[0];
+		e27.startPoint		= new Vector3( 250.0f, 60.0f, 250.0f );
+		e27.endPoint		= new Vector3( 250.0f, 60.0f, -250.0f );
+		e27.group.territory		= 70.4f;
+		e27.spawn.number	= 8;
+		e27.emitStartTime	= 3.0f;
+		e27.spawn.interval	= 2.0f;
+		e27.maxSpeed		= 20.0f;
+		e27.readyEmit		= true;//false;
+		e27.member.wakeUpInBattle = true;
+		
+		e27.applyTo(c27).registTo(t24);
+		
+		var t27 = e27.issue();
+		
+		
+		
+		// ８波　蟻８匹キャリア
+		var c28 = new ConditionRemainMemberInGroup();
+		var e28 = new EventCreateGroupGate();
+		
+		e28.gatePrefab				= (EnemysGate)prefabs[2];
+		e28.member.characterPrefab	= characterHolder.prefabList.prefabActions[0];
+		e28.startPoint		= new Vector3( 250.0f, 60.0f, -250.0f );
+		e28.endPoint		= new Vector3( -250.0f, 60.0f, -250.0f );
+		e28.group.territory		= 70.4f;
+		e28.spawn.number	= 8;
+		e28.emitStartTime	= 3.0f;
+		e28.spawn.interval	= 2.0f;
+		e28.maxSpeed		= 20.0f;
+		e28.readyEmit		= true;//false;
+		e28.member.wakeUpInBattle = true;
+		
+		e28.applyTo(c28).registTo(t24);
+		
+		var t28 = e28.issue();
+		
+		
+		// ９波　ＧＲ蟻ｘ８　もりもりっと
+		var c29 = new ConditionRemainMemberInGroup();
+		var e29 = new EventCreateGroupGate();
+		
+		e29.gatePrefab				= (EnemysGate)prefabs[2];
+		e29.member.characterPrefab	= characterHolder.prefabList.prefabActions[3];
+		e29.startPoint		= new Vector3( 0.0f, 250.0f, 0.0f );
+		e29.endPoint		= new Vector3( 0.0f, 40.0f, 0.0f );
+		e29.group.territory		= 50.4f;
+		e29.spawn.number	= 8;
+		e29.emitStartTime	= 0.0f;
+		e29.spawn.interval	= 0.5f;
+		e29.maxSpeed		= 30.0f;
+		e29.readyEmit		= false;
+		e29.waitTime		= 90.0f;
+		e29.member.wakeUpInBattle	= true;
+		
+		e29.applyTo(c29).registTo(t24);
+		
+		var t29 = e29.issue();
+		
+		voice( "爆発性の物体を射出する個体が大量に発生中。都市部へ拡散する前に殲滅してください。", t29, 4.0f );
+		
+		voiceOverGroup( "この音は、　注意してください。更に大きい輸送船が接近しています！こ、これは一体？", t29, 12.0f );
+		
+		
+		
+		// １０波　大蟻８匹キャリア
+		var c30 = new ConditionRemainMemberInGroup();
+		var e30 = new EventCreateGroupGate();
+		
+		e30.gatePrefab				= (EnemysGate)prefabs[1];
+		e30.member.characterPrefab	= characterHolder.prefabList.prefabActions[2];
+		e30.startPoint		= new Vector3( 0.0f, 160.0f, -88.0f );
+		e30.endPoint		= new Vector3( 0.0f, 40.0f, -88.0f );
+		e30.group.territory		= 50.4f;
+		e30.spawn.number	= 8;
+		e30.emitStartTime	= 0.0f;
+		e30.spawn.interval	= 5.0f;
+		e30.maxSpeed		= 8.0f;
+		e30.readyEmit		= false;
+		
+		e30.waitTime	= 20.0f;
+		
+		e30.applyTo(c30).registTo(t29);
+		
+		var t30 = e30.issue();
+		
+		voiceOverGroup( "次々と輸送船が飛来しています。この数は危険すぎます。本部へ応援を要請します！", t30, 2.0f );
+		
+		
+		// １１波　大蟻３匹キャリア
+		var c31 = new ConditionRemainMemberInGroup();
+		var e31 = new EventCreateGroupGate();
+		
+		e31.gatePrefab				= (EnemysGate)prefabs[0];
+		e31.member.characterPrefab	= characterHolder.prefabList.prefabActions[2];
+		e31.startPoint		= new Vector3( -174.0f, 120.0f, 226.0f );
+		e31.endPoint		= new Vector3( -174.0f, 60.0f, 226.0f );
+		e31.group.territory		= 50.4f;
+		e31.spawn.number	= 3;
+		e31.emitStartTime	= 0.0f;
+		e31.spawn.interval	= 5.0f;
+		e31.maxSpeed		= 15.0f;
+		e31.readyEmit		= false;
+		
+		e31.waitTime	= 40.0f;
+		
+		e31.applyTo(c31).registTo(t29);
+		
+		var t31 = e31.issue();
+		
+		
+		// １２波　ＧＲ蟻３匹キャリア
+		var c32 = new ConditionRemainMemberInGroup();
+		var e32 = new EventCreateGroupGate();
+		
+		e32.gatePrefab				= (EnemysGate)prefabs[2];
+		e32.member.characterPrefab	= characterHolder.prefabList.prefabActions[3];
+		e32.startPoint		= new Vector3( 17.0f, 82.0f, -88.0f );
+		e32.endPoint		= new Vector3( 17.0f, 22.0f, -88.0f );
+		e32.group.territory		= 50.4f;
+		e32.spawn.number	= 3;
+		e32.emitStartTime	= 0.0f;
+		e32.spawn.interval	= 5.0f;
+		e32.maxSpeed		= 15.0f;
+		e32.readyEmit		= false;
+		
+		e32.waitTime	= 10.0f;//45.0f;
+		
+		e32.applyTo(c32).registTo(t31);//29);
+		
+		var t32 = e32.issue();
+		
+		
+		// １３波　大蟻５匹キャリア
+		var c33 = new ConditionRemainMemberInGroup();
+		var e33 = new EventCreateGroupGate();
+		
+		e33.gatePrefab				= (EnemysGate)prefabs[1];
+		e33.member.characterPrefab	= characterHolder.prefabList.prefabActions[2];
+		e33.startPoint		= new Vector3( 209.0f, 160.0f, 227.0f );
+		e33.endPoint		= new Vector3( 209.0f, 80.0f, 227.0f );
+		e33.group.territory		= 50.4f;
+		e33.spawn.number	= 5;
+		e33.emitStartTime	= 0.0f;
+		e33.spawn.interval	= 2.0f;
+		e33.maxSpeed		= 15.0f;
+		e33.readyEmit		= false;
+		
+		e33.waitTime	= 100.0f;
+		
+		e33.applyTo(c33).registTo(t29);
+		
+		var t33 = e33.issue();
+		
+		
+		// １４波　大蟻３匹キャリア
+		var c34 = new ConditionRemainMemberInGroup();
+		var e34 = new EventCreateGroupGate();
+		
+		e34.gatePrefab				= (EnemysGate)prefabs[0];
+		e34.member.characterPrefab	= characterHolder.prefabList.prefabActions[2];
+		e34.startPoint		= new Vector3( -200.0f, 80.0f, -226.0f );
+		e34.endPoint		= new Vector3( -200.0f, 20.0f, -226.0f );
+		e34.group.territory		= 50.4f;
+		e34.spawn.number	= 3;
+		e34.emitStartTime	= 0.0f;
+		e34.spawn.interval	= 5.0f;
+		e34.maxSpeed		= 15.0f;
+		e34.readyEmit		= false;
+		
+		e34.waitTime	= 15.0f;//160.0f;
+		
+		e34.applyTo(c34).registTo(t31);//29);
+		
+		var t34 = e34.issue();
+		
+		
+		// １５波　ＧＲ蟻３匹キャリア
+		var c35 = new ConditionRemainMemberInGroup();
+		var e35 = new EventCreateGroupGate();
+		
+		e35.gatePrefab				= (EnemysGate)prefabs[2];
+		e35.member.characterPrefab	= characterHolder.prefabList.prefabActions[3];
+		e35.startPoint		= new Vector3( 121.0f, 100.0f, 70.0f );
+		e35.endPoint		= new Vector3( 121.0f, 40.0f, 70.0f );
+		e35.group.territory		= 50.4f;
+		e35.spawn.number	= 3;
+		e35.emitStartTime	= 0.0f;
+		e35.spawn.interval	= 0.5f;
+		e35.maxSpeed		= 90.0f;
+		e35.readyEmit		= false;
+		
+		e35.waitTime	= 6.0f;//175.0f;
+		
+		e35.applyTo(c35).registTo(t32);//29);
+		
+		var t35 = e35.issue();
+		
+		voice( "本部へ応援を要請中。本部へ応援を要請中。", t35, 5.0f );
+		
+		
+		// １６波　大蟻５匹キャリア
+		var c36 = new ConditionRemainMemberInGroup();
+		var e36 = new EventCreateGroupGate();
+		
+		e36.gatePrefab				= (EnemysGate)prefabs[1];
+		e36.member.characterPrefab	= characterHolder.prefabList.prefabActions[2];
+		e36.startPoint		= new Vector3( -189.0f, 150.0f, -29.0f );
+		e36.endPoint		= new Vector3( -189.0f, 60.0f, -29.0f );
+		e36.group.territory		= 50.4f;
+		e36.spawn.number	= 5;
+		e36.emitStartTime	= 0.0f;
+		e36.spawn.interval	= 5.0f;
+		e36.maxSpeed		= 20.0f;
+		e36.readyEmit		= false;
+		
+		e36.waitTime	= 5.0f;//230.0f;
+		
+		e36.applyTo(c36).registTo(t34);//29);
+		
+		var t36 = e36.issue();
+		
+		
+		// １７波　大蟻３匹キャリア
+		var c37 = new ConditionRemainMemberInGroup();
+		var e37 = new EventCreateGroupGate();
+		
+		e37.gatePrefab				= (EnemysGate)prefabs[0];
+		e37.member.characterPrefab	= characterHolder.prefabList.prefabActions[2];
+		e37.startPoint		= new Vector3( 194.0f, 146.0f, -187.0f );
+		e37.endPoint		= new Vector3( 194.0f, 86.0f, -187.0f );
+		e37.group.territory		= 50.4f;
+		e37.spawn.number	= 3;
+		e37.emitStartTime	= 0.0f;
+		e37.spawn.interval	= 5.0f;
+		e37.maxSpeed		= 20.0f;
+		e37.readyEmit		= false;
+		
+		e37.waitTime	= 10.0f;//300.0f;
+		
+		e37.applyTo(c37).registTo(t33);//29);
+		
+		var t37 = e37.issue();
+		
+		
+		// １８波　大蟻８匹キャリア
+		var c38 = new ConditionRemainMemberInGroup();
+		var e38 = new EventCreateGroupGate();
+		
+		e38.gatePrefab				= (EnemysGate)prefabs[1];
+		e38.member.characterPrefab	= characterHolder.prefabList.prefabActions[2];
+		e38.startPoint		= new Vector3( -50.0f, 100.0f, -187.0f );
+		e38.endPoint		= new Vector3( -50.0f, 60.0f, 189.0f );
+		e38.group.territory		= 50.4f;
+		e38.spawn.number	= 8;
+		e38.emitStartTime	= 0.0f;
+		e38.spawn.interval	= 2.0f;
+		e38.maxSpeed		= 10.0f;
+		e38.readyEmit		= false;
+		
+		e38.waitTime	= 5.0f;//300.0f;
+		
+		e38.applyTo(c38).registTo(t35);//29);
+		
+		var t38 = e38.issue();
+		
+		voiceOverGroup( "すごい、。あの数の敵を、。あなたのような人も、いるのですね。", t36, 0.0f );
+		
+		
+		// １９波　蟻１匹
+		var c39 = new ConditionCompositionUnit();
+		var e39 = new EventCreateGroup();
+		
+		e39.group.center		= Vector3.zero;
+		e39.group.territory	= 250.0f;
+		e39.waitTime	= 15.0f;
+		e39.member.characterPrefab = characterHolder.prefabList.prefabActions[0];
+		e39.spawn.number = 1;
+		
+		var c3800 = new ConditionRemainMemberInGroup();
+		var c3801 = new ConditionRemainMemberInGroup();
+		var c3802 = new ConditionRemainMemberInGroup();
+		var c3803 = new ConditionRemainMemberInGroup();
+		var c3804 = new ConditionRemainMemberInGroup();
+		var c3805 = new ConditionRemainMemberInGroup();
+		var c3806 = new ConditionRemainMemberInGroup();
+		var c3807 = new ConditionRemainMemberInGroup();
+		var c3808 = new ConditionRemainMemberInGroup();
+		
+		e39.applyTo(c39);
+		c39.applyTo(c3800).registTo(t30);
+		c39.applyTo(c3801).registTo(t31);
+		c39.applyTo(c3802).registTo(t32);
+		c39.applyTo(c3803).registTo(t33);
+		c39.applyTo(c3804).registTo(t34);
+		c39.applyTo(c3805).registTo(t35);
+		c39.applyTo(c3806).registTo(t36);
+		c39.applyTo(c3807).registTo(t37);
+		c39.applyTo(c3808).registTo(t38);
+		
+		var t39 = e39.issue();
+		
+		voice( "待ってください！この反応は、！直ちに、直ちにその場所から撤退してください！", t39, 3.0f );
+		
+		voice( "くり返します。直ちに、直ちにその場所から撤退してください！", t39, 30.0f );
+		
+		
+		
+		var c100 = new ConditionRemainMemberInGroup();
+		var e100 = new EventPlayMusic();
+		
+		e100.clipId = 0;
+		e100.delay = 1.0f;
+		
+		e100.applyTo(c100).registTo(t39);
+		
+		
+		
+		
+		// ２０波　王蟻１＋１０匹
+		var c40 = new ConditionRemainMemberInGroup();
+		var e400 = new EventCreateGroup();
+		var e401 = new EventAddMembersToGroup();
+		
+		e400.group.center = new Vector3( -220.0f, 37.0f, 206.0f );
+		e400.group.territory = 70.0f;
+		e400.member.characterPrefab = characterHolder.prefabList.prefabActions[1];
+		e400.spawn.number = 1;
+		e400.member.isLeader = true;
+	//	e400.member.wakeUpInBattle = true;
+		e400.member.domination = _EnemyActionBase.enDisposition.high;
+		
+		e401.member.characterPrefab = characterHolder.prefabList.prefabActions[0];
+		e401.spawn.number = 10;
+	//	e401.member.wakeUpInBattle = true;
+	//	e401.member.domination = _EnemyActionBase.enDisposition.high;
+		e401.member.domination = _EnemyActionBase.enDisposition.middle;
+		e401.member.aggression = _EnemyActionBase.enDisposition.middle;
+		
+		e400.applyTo(c40).registTo(t39);
+		
+		var t40 = e400.issue();
+		
+		t40.deliverTo(e401);
+		
+		
+		// ２１波　王蟻１＋１０匹
+		var c41 = new ConditionRemainMemberInGroup();
+		var e410 = new EventCreateGroup();
+		var e411 = new EventAddMembersToGroup();
+		
+		e410.group.center = new Vector3( -17.0f, 20.0f, -220.0f );
+		e410.group.territory = 70.0f;
+		e410.member.characterPrefab = characterHolder.prefabList.prefabActions[1];
+		e410.spawn.number = 1;
+		e410.member.isLeader = true;
+	//	e410.member.wakeUpInBattle = true;
+		e410.member.domination = _EnemyActionBase.enDisposition.high;
+		
+		e411.member.characterPrefab = characterHolder.prefabList.prefabActions[0];
+		e411.spawn.number = 10;
+	//	e411.member.wakeUpInBattle = true;
+	//	e411.member.domination = _EnemyActionBase.enDisposition.high;
+		e411.member.domination = _EnemyActionBase.enDisposition.middle;
+		e411.member.aggression = _EnemyActionBase.enDisposition.middle;
+		
+		e410.applyTo(c41).registTo(t39);
+		
+		var t41 = e410.issue();
+		
+		t41.deliverTo(e411);
+		
+		
+		// ２２波　王蟻１＋１０匹
+		var c42 = new ConditionRemainMemberInGroup();
+		var e420 = new EventCreateGroup();
+		var e421 = new EventAddMembersToGroup();
+		
+		e420.group.center = new Vector3( 220.0f, 43.0f, 226.0f );
+		e420.group.territory = 70.0f;
+		e420.member.characterPrefab = characterHolder.prefabList.prefabActions[1];
+		e420.spawn.number = 1;
+		e420.member.isLeader = true;
+	//	e420.member.wakeUpInBattle = true;
+		e420.member.domination = _EnemyActionBase.enDisposition.high;
+		
+		e421.member.characterPrefab = characterHolder.prefabList.prefabActions[0];
+		e421.spawn.number = 10;
+	//	e421.member.wakeUpInBattle = true;
+	//	e421.member.domination = _EnemyActionBase.enDisposition.high;
+		e421.member.domination = _EnemyActionBase.enDisposition.middle;
+		e421.member.aggression = _EnemyActionBase.enDisposition.middle;
+		
+		e420.applyTo(c42).registTo(t39);
+		
+		var t42 = e420.issue();
+		
+		t42.deliverTo(e421);
+		
+		
+		// ２３波　ＧＲ蟻ｘ８　広範囲
+		var c430 = new ConditionNoLeaderInGroup();
+		var c431 = new ConditionNoLeaderInGroup();
+		var c432 = new ConditionNoLeaderInGroup();
+		var e43 = new EventCreateGroup();
+		
+		e43.setTriggerCount( 1 );//mode( 1 );
+		
+		e43.group.center = Vector3.zero;
+		e43.group.territory = 220.0f;
+		e43.member.characterPrefab = characterHolder.prefabList.prefabActions[3];
+		e43.spawn.number	= 16;
+		e43.spawn.maxExists	= 8;
+		e43.spawn.interval	= 20.0f;
+		e43.member.aggression	= _EnemyActionBase.enDisposition.middle;
+		e43.waitTime		= 10.0f;
+		
+		e43.applyTo(c430).registTo(t40);
+		e43.applyTo(c431).registTo(t41);
+		e43.applyTo(c432).registTo(t42);
+		
+		var t43 = e43.issue();
+		
+		voice( "超巨大個体、残り２体。気をつけてください。爆破こうかくちゅう多数接近中！", t43, 1.0f );
+		
+		
+		
+		// ２４波　大蟻ｘ８　広範囲
+		var c440 = new ConditionNoLeaderInGroup();
+		var c441 = new ConditionNoLeaderInGroup();
+		var c442 = new ConditionNoLeaderInGroup();
+		var e44 = new EventCreateGroup();
+		
+		e44.setTriggerCount( 2 );//.mode( 2 );
+		
+		e44.group.center = Vector3.zero;
+		e44.group.territory = 220.0f;
+		e44.member.characterPrefab = characterHolder.prefabList.prefabActions[2];
+		e44.spawn.number	= 32;
+		e44.spawn.maxExists	= 3;
+		e44.spawn.interval	= 20.0f;
+	//	e44.member.aggression	= _EnemyActionBase.enDisposition.middle;
+		e44.member.wakeUpInBattle	= true;
+		e44.waitTime		= 10.0f;
+		
+		e44.applyTo(c440).registTo(t40);
+		e44.applyTo(c441).registTo(t41);
+		e44.applyTo(c442).registTo(t42);
+		
+		var t44 = e44.issue();
+		
+		voice( "超巨大個体、残り１体。精鋭たい多数接近中。精鋭たい多数接近中。", t44, 1.0f );
+		
+		
+		
+		
+		var c450 = new ConditionNoLeaderInGroup();
+		var c451 = new ConditionNoLeaderInGroup();
+		var c452 = new ConditionNoLeaderInGroup();
+		var e45 = new EventStopSpawnInGroup();
+		
+		e45.setTriggerMode( _MEventUnit.enMode.and );//.mode( _MEventUnit.enMode.and );
+		
+		e45.applyTo(c450).registTo(t40);
+		e45.applyTo(c451).registTo(t41);
+		e45.applyTo(c452).registTo(t42);
+		t43.deliverTo(e45);
+		
+		
+		var c460 = new ConditionNoLeaderInGroup();
+		var c461 = new ConditionNoLeaderInGroup();
+		var c462 = new ConditionNoLeaderInGroup();
+		var e46 = new EventStopSpawnInGroup();
+		
+		e46.setTriggerMode( _MEventUnit.enMode.and );//.mode( _MEventUnit.enMode.and );
+		
+		e46.applyTo(c460).registTo(t40);
+		e46.applyTo(c461).registTo(t41);
+		e46.applyTo(c462).registTo(t42);
+		t44.deliverTo(e46);
+		
+		
+		var cv0 = new ConditionNoLeaderInGroup();
+		var cv1 = new ConditionNoLeaderInGroup();
+		var cv2 = new ConditionNoLeaderInGroup();
+		var ev = new EventTextToSpeech();
+		ev.setTriggerMode( _MEventUnit.enMode.and );//.mode( _MEventUnit.enMode.and );
+		ev.text = "たいせん後、こんなにも巨大生物が猛威を振るったという記録はないはずです。一体何が起ころうとしているのでしょうか、。";
+		ev.waitTime = 2.0f;
+		ev.applyTo(cv0).registTo(t40);
+		ev.applyTo(cv1).registTo(t41);
+		ev.applyTo(cv2).registTo(t42);
+*/		
+	}
+
+	
+	public _ActionBase[]	prefabs;//
+	
+}
+
+
+
+
+
+public class GroupMaster : IMissionEventable
+{
+	
+	public ActivityGroup	prefab	{ get; private set; }
+	
+	public int				count	{ get; private set; }
+	
+	public EventTargetLinkerHolder<GroupMaster>	events;
+	
+	
+	
+	public void init( ActivityGroup pfab )
+	{
+		prefab = pfab;
+		
+		count = -1;	// freeGroup 対策
+	}
+
+	public void eventStart( MEventTargetLinker<GroupMaster> eventLinker )
+	{
+		events.init( eventLinker, this );
+	}
+
+	
+	public void increase()
+	{
+		count++;
+
+		events.checkAll();
+	}
+	
+	public void decrease()
+	{
+		count--;
+		
+		events.checkAll();
+	}
+	
+}
+
+
+public class EnemyMaster
+{
+	
+	public int		count	{ get; private set; }
+	
+	public GUIText	view	{ get; private set; }
+	
+	
+	public void init( GUIText gtext )
+	{
+		count = 0;
+		
+		view = gtext;
+		
+		view.text = count.ToString();
+	}
+	
+	
+	public void increase()
+	{
+		count++;
+		
+		view.text = count.ToString();
+	}
+	
+	public void decrease()
+	{
+		count--;
+		
+		view.text = count.ToString();
+		
+		if( count <= 0 )
+		{
+			SystemManager.gotoMissionClear();
+		}
+	}
+	
+}
+
+
+
+public class MusicMaster
+{
+	
+	public string[]		urls;
+	
+	public AudioClip[]	musics;
+	
+	AudioSource	sound;
+	
+//	bool	triedLoadAll;
+	
+	
+	public void init( AudioSource snd, string[] murls )
+	{
+		sound = snd;
+		
+		urls = murls;
+		
+		musics = new AudioClip[ urls.Length ];
+		
+		loadAll();//
+	}
+	
+	
+	public void loadAll()
+	{
+		
+	//	triedLoadAll = true;
+		
+		SystemManager.startCoroutine( _loadAll() );
+		
+	}
+	IEnumerator _loadAll()
+	{
+		for( var i = 0; i < urls.Length; i++ )
+		{
+			var www = new WWW( urls[i] );
+			
+			yield return www;
+			
+			musics[i] = www.GetAudioClip( false, true );
+		}
+	}
+	
+	public void play( int id, float delay )
+	{
+		
+		if( musics[id] )
+		{
+			_play( id, delay );
+		}
+		else
+		{
+			SystemManager.startCoroutine( _loadAndPlay(id,delay) );
+		}
+	}
+	
+	IEnumerator _loadAndPlay( int id, float delay )
+	{
+		var www = new WWW( urls[id] );
+		
+		yield return www;
+		
+		musics[id] = www.GetAudioClip( false, true, AudioType.OGGVORBIS );
+		
+		_play( id, delay );
+	}
+	
+	void _play( int id, float delay )
+	{
+		sound.clip = musics[id];
+		
+		sound.PlayDelayed( delay );
+	}
+	
+	public void checkPlayLoop()
+	{
+		if( sound.clip != null && !sound.isPlaying && sound.clip.isReadyToPlay )
+		{
+			sound.PlayDelayed( 0.0f );
+		}
+	}
+	
+}
+
+
+
+
+
+
+
+

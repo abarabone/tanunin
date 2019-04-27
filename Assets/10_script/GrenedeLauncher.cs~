@@ -1,0 +1,25 @@
+using UnityEngine;
+using System.Collections;
+
+public class GrenedeLauncher : WaponBase
+{
+
+	
+	
+	public override void mainFire()
+	{
+		
+		
+		
+	}
+	
+	
+	public override void subFire()
+	{
+		
+		
+		
+	}
+	
+	
+}

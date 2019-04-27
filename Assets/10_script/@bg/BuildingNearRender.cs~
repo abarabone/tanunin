@@ -1,0 +1,44 @@
+using UnityEngine;
+using System.Collections;
+
+public class BuildingNearRender : MonoBehaviour
+{
+	
+	public MeshRenderer	mr;
+	
+	public BitFloatArray	visibles;
+	
+	
+	public void initPartVisibilityOn( BitFloatArray vis )
+	{
+		
+		visibles = vis;
+		
+		for( var i=vis.length; i-->0; )
+		{
+			mr.material.SetFloat( "visible" + i, 1.0f );
+		}
+		
+	}
+	
+	public void setPartVisibilityOff( int partId )
+	{
+		mr.material.SetFloat( "visible" + partId, 0.0f );
+	}
+	
+	
+/*	
+	IEnumerator OnBecameVisible()
+	{
+	//	Debug.Log("onbec");
+		
+		do
+		{
+		//	Debug.Log("aa");
+			
+			yield return 0;
+		}
+		while( mr.isVisible );
+	}
+*/	
+}

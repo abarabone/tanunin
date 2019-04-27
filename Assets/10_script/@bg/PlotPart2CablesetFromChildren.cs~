@@ -1,0 +1,69 @@
+using UnityEngine;
+using System.Collections;
+
+public class PlotPart2CablesetFromChildren : _StructurePart2FromChildrenBase
+{
+
+
+	public override void build()
+	{
+
+		var cables = adjustCablePositions();	// 多分エディタ上でやってるけど
+
+
+		if( cables.Length > 0 )
+		{
+
+			var cableset = gameObject.AddComponent<PlotPart2Cableset>();
+
+			cableset.setPoleLinks( cables );
+
+		}
+
+
+		base.build();
+		
+	}
+
+
+	public CablePiece[] adjustCablePositions()
+	{
+
+		var cables = GetComponentsInChildren<CablePiece>( true );
+
+
+		var tf = transform;
+
+		var pos = new Vector3();
+
+
+		foreach( var cable in cables )
+		{
+
+			cable.transform.parent = null;
+
+			cable.adjustTransform();
+
+			var center = cable.tfStartSide.position + ( cable.tfEndSide.position - cable.tfStartSide.position ) * 0.5f;//tfCable.position + tfCable.forward * ( tfCable.localScale * 0.5f );
+
+			pos += center;
+
+		}
+
+
+		tf.position = pos * ( 1.0f / (float)cables.Length );
+
+
+		foreach( var cable in cables )
+		{
+
+			cable.transform.parent = tf;
+
+		}
+
+
+		return cables;
+
+	}
+
+}

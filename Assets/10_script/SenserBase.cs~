@@ -1,0 +1,49 @@
+using UnityEngine;
+using System.Collections;
+
+using ul = UserLayer;
+
+
+public class Senser : MonoBehaviour
+{
+
+	
+	
+	
+	
+	
+}
+
+
+
+public abstract class SenserModuleBase
+{
+	
+	public float	a;
+	
+	public abstract void search();
+	
+}
+
+
+public class eye : SenserModuleBase
+{
+	
+	public override void search()
+	{
+		
+		
+		
+	}
+	
+}
+
+
+
+
+
+
+
+
+
+

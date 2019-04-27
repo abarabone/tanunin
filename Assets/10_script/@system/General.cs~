@@ -1,0 +1,66 @@
+using UnityEngine;
+using System.Collections;
+
+using ul = UserLayer;
+
+
+
+
+
+public class UserLayer
+{
+	
+	static public readonly int player		= 1 << LayerMask.NameToLayer( "player" );
+	static public readonly int otherPlayer	= 1 << LayerMask.NameToLayer( "otherPlayer" );
+	
+	static public readonly int enemyDetail	= 1 << LayerMask.NameToLayer( "enemyDetail" );
+	static public readonly int enemyEnvelope= 1 << LayerMask.NameToLayer( "enemyEnvelope" );
+	static public readonly int enemyMoveBody= 1 << LayerMask.NameToLayer( "enemyMoveBody" );
+	
+	static public readonly int bgDetail		= 1 << LayerMask.NameToLayer( "bgDetail" );
+	static public readonly int bgEnvelope	= 1 << LayerMask.NameToLayer( "bgEnvelope" );
+	static public readonly int bgField		= 1 << LayerMask.NameToLayer( "bgField" );
+	
+	
+	static public readonly int iobject		= 1 << LayerMask.NameToLayer( "iobject" );
+	static public readonly int bullet		= 1 << LayerMask.NameToLayer( "bullet" );
+	static public readonly int explosion	= 1 << LayerMask.NameToLayer( "explosion" );
+	
+	
+	static public readonly int players			= player | otherPlayer;
+	static public readonly int charMoves		= players | enemyMoveBody;
+	static public readonly int groundForPlayer	= otherPlayer | bgDetail | bgField | enemyDetail;
+	static public readonly int groundForEnemy	= bgEnvelope | bgField;// | enemyEnvelope;
+	static public readonly int bulletHitable	= player | otherPlayer | enemyDetail | bgDetail | bgField;
+	static public readonly int explosionHitable	= player | otherPlayer | enemyEnvelope | bgEnvelope | bgField;
+}
+
+
+
+
+public enum enActType
+{
+	players,
+	npcSoldier,
+	npcThird,
+	enemy
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

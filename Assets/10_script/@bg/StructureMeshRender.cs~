@@ -1,0 +1,78 @@
+using UnityEngine;
+using System.Collections;
+
+public class StructureMeshRender : MonoBehaviour
+{
+	
+	public MeshRenderer	mr;//	{ set; get; }
+	
+	public _StructureBase2		structure;
+	
+//	StructureBone[]	bones;
+	
+	public BitFloatArray	visibles;
+	
+
+	public void initPartsVisibilityOn( _StructureBase2 s, MeshRenderer inmr )
+	{
+
+		structure	= s;
+
+		mr	= inmr;
+
+
+		visibles = new BitFloatArray();
+
+		visibles.init( s.parts.Length, true );
+
+
+		for( var i=visibles.fieldLength; i-->0; )
+		{
+			mr.sharedMaterial.SetFloat( "v" + i, 1.0f );
+		}
+		
+	}
+
+	public void initPartsVisibilityOn( BitFloatArray vis )
+	{
+		
+		visibles = vis;//new BitFloatArray( vis );Debug.Log( visibles.array.Length +" "+ visibles.fieldLength );
+		
+		for( var i=vis.fieldLength; i-->0; )
+		{
+			mr.sharedMaterial.SetFloat( "v" + i, 1.0f );
+		}
+		
+	}
+	
+	public void setPartVisibilityOff( int partId )
+	{
+		
+		mr.material.SetFloat( "v" + partId, 0.0f );
+		
+		visibles[ partId ] = 0.0f;
+		
+	}
+	
+	public void setPartHeight( int partId, float heightInWorld )
+	{
+		
+		mr.material.SetFloat( "h" + partId, heightInWorld );
+		
+	}
+	
+/*	
+	IEnumerator OnBecameVisible()
+	{
+	//	Debug.Log("onbec");
+		
+		do
+		{
+		//	Debug.Log("aa");
+			
+			yield return 0;
+		}
+		while( mr.isVisible );
+	}
+*/	
+}

@@ -1,0 +1,340 @@
+﻿using UnityEngine;
+using System.Collections;
+
+
+
+
+
+
+
+
+
+
+// 条件 *************************************************************************
+
+
+
+public abstract class _ConditionUnitBase
+{
+	
+	
+	protected _MEventUnitBase	mevent;
+	
+/*	
+	public float	waitTime;
+	// 少なくともターゲットイベントから経過するべき時間、ターゲットイベント成立後はその Time.time + waitTime が入る
+	
+	
+
+	
+	
+	protected void processEventAfterWaitTime()
+	{
+		
+		EventMaster.increaseEvent();Debug.Log(mevent);
+		
+		var ct = waitTime - Time.time;//Debug.Log( "check " + mevent);
+		
+		var t = (ct > 0.0f? ct: 0.0f) + mevent.waitTime;	// イベントの時間も一緒に処理してしまう
+		
+		var f = t > 0.0f;
+		
+		if( f )
+		{
+			EventMaster.startMEventCoroutine( processAfterTime(t) );
+		}
+		else
+		{
+			//Debug.Log( "not wait time " + mevent );
+			processEvent();
+		}
+		
+	}
+	
+	IEnumerator processAfterTime( float t )
+	{//Debug.Log( "wait time " + t + " " + mevent );
+		yield return new WaitForSeconds( t );
+		
+		processEvent();
+	}
+	
+	void processEvent()
+	{
+		mevent.process();
+		
+		mevent = null;
+		
+		EventMaster.decreaseEvent();//Debug.Log( "processed " + mevent );
+	}
+*/	
+}
+
+// ------------------------------------------------------
+
+
+public abstract class _ConditionUnit<T> : _ConditionUnitBase, IConditionUnit where T : class, IMissionEventable
+	// ターゲットに依存する条件はこれを継承する
+	// 破棄タイミング
+	// 　・EventTargetLinkerHolder.remove()
+	// 　・EventTargetLinkerHolder.fin() での条件全消し
+{
+	
+	public _ConditionUnit<T>	prev;
+	public _ConditionUnit<T>	next;
+	
+	
+	public MEventTargetLinker<T>	dependedLinker	{ get; protected set; }
+	
+	
+	
+	protected abstract bool _check();
+	
+	
+	public void check()
+	{
+		
+		if( /*mevent == null || */mevent.conditionCount == 0 || mevent.isLostDeppend() == true )
+			// イベントが無いか実行済み（ＯＲ等の残党）なら、ここでクリンナップする
+		{
+			
+			removeCondition();//Debug.Log( "no or finished event " + mevent);
+			
+			mevent = null;
+			
+		}
+		else if( _check() )
+		{//Debug.Log( "0check " + mevent);
+			
+			removeCondition();//Debug.Log( "1check " + mevent);
+			
+			mevent.process();//Debug.Log( "2check " + mevent);
+			
+			mevent = null;
+
+		}
+		
+	}
+	
+	void removeCondition()
+	{
+		
+		if( dependedLinker != null )
+		{//Debug.Log( "remove " + this );
+			
+			dependedLinker.conditions.remove( this );
+			
+		}
+		
+	}
+
+
+	public bool isLostDeppend()
+	{
+		return dependedLinker.target == null;
+	}
+
+
+	
+	public MEventTargetLinker<T> _registTo( MEventTargetLinker<T> linker )
+	{
+		
+		dependedLinker = linker;
+
+		linker.conditions.AddLast( this );
+
+		return linker;
+		
+	}
+	
+	public IConditionUnit applyTo( _MEventUnitBase e )
+	{
+		
+		e._addConditionCount();
+		
+		if( _check() )
+		{
+			removeCondition();
+			
+			e._releaseConditionCount();
+		}
+		else
+		{
+			
+			mevent = e;
+			
+		}
+		
+		return this;
+		
+	}
+	
+	public IConditionUnit applyTo<T>( _MEventUnitDepended<T> e ) where T : class, IMissionEventable
+	{
+		
+		var ce = e._enableAdditionalConditions();
+		
+		return applyTo( ce );
+		
+	}
+	
+	
+	//	public virtual void registToGroupMaster(){}
+	
+}
+
+
+
+
+
+
+// 各種条件 **************************************************************************
+
+
+public class ConditionTargetCreated<T> : _ConditionUnit<T> where T : class, IMissionEventable
+	// ターゲットが生成された
+{
+	protected override bool _check()
+	{
+		return dependedLinker.target != null;
+	}
+}
+
+
+public class ConditionWaitTime : _ConditionUnitBase, IConditionUnit
+	// ターゲットには依存せず、時間だけで処理する条件
+{
+
+	public float	waitTime;
+
+
+	IEnumerator wait()
+	{//Debug.Log( "wait time " + t + " " + mevent );
+
+		yield return new WaitForSeconds( waitTime );
+		
+		mevent.process();
+
+	}
+	
+	public IConditionUnit applyTo( _MEventUnitBase e )
+	{
+
+		e._addConditionCount();
+
+
+		if( waitTime > 0.0f )
+		{
+
+			mevent = e;
+
+			EventMaster.startMEventCoroutine( wait() );
+
+		}
+		else
+		{
+
+			e._releaseConditionCount();
+
+		}
+
+
+		return this;
+		
+	}
+	
+	public IConditionUnit applyTo<T>( _MEventUnitDepended<T> e ) where T : class, IMissionEventable
+	{
+		
+		var ce = e._enableAdditionalConditions();
+		
+		return applyTo( ce );
+		
+	}
+	
+}
+
+
+
+
+
+public class ConditionRemainMemberInGroup : _ConditionUnit<ActivityGroup>
+	// グループのメンバー数が指定以下になったら条件成立
+{
+	
+	public int	remainCount			= 0;
+	
+	public int	onceArrivalMember	= 1;
+	
+	protected override bool _check()
+	{
+		var group = dependedLinker.target;//Debug.Log( "con rem " + group + " " + (group?group.memberCount:0) +":"+ remainCount );
+		
+		return group && group.onceArrivaledMemberCount >= onceArrivalMember && group.memberCount <= remainCount;
+	}
+	
+}
+
+
+public class ConditionNoLeaderInGroup : _ConditionUnit<ActivityGroup>
+	// グループのリーダーが不在になったら条件成立
+{
+	
+	protected override bool _check()
+	{
+		var group = dependedLinker.target;//if( group) Debug.Log( group.onceArrivaledMemberCount );
+		
+		//	return group && group.onceArrivaledMemberCount > 0 && group.leader == null;
+		return group && group.onceArrivaledMemberCount > 0 && !group.hasLeader;
+	}
+	
+}
+
+
+public class ConditionRemainLife : _ConditionUnit<_ActionBase>
+	// グループのリーダーが不在になったら条件成立
+{
+	
+	public float	remainLife;
+	
+	
+	protected override bool _check()
+	{
+		var act = dependedLinker.target;
+		
+		return act && act.hp.life <= remainLife;
+	}
+	
+}
+
+
+
+
+/*
+public class ConditionRemainGroup : _ConditionUnitBase<GroupMaster>
+// グループのメンバー数が指定以下になったら条件成立
+{
+	
+	public int	remainCount		= 0;
+	
+	public int	eventProgress	= 0;
+	
+	
+	public override void registToGroupMaster()
+	{
+		registTo( EventMaster.groupMasterTargetLinker );
+	}
+	
+	protected override bool _check()
+	{
+		var groupMaster = dependedLinker.target;//Debug.Log( "con rem " + groupMaster + " " + (groupMaster!=null?groupMaster.count:0) +":"+ remainCount );
+		
+	//	Debug.Log( "event progress" + _MEventUnit.eventProgress +":"+ eventProgress );
+		
+		return _MEventUnit.eventProgress >= eventProgress && groupMaster.count <= remainCount;
+	}
+	
+}
+*/
+
+
+

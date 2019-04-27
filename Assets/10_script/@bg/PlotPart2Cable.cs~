@@ -1,0 +1,94 @@
+using UnityEngine;
+using System.Collections;
+
+public class PlotPart2Cable : PlotPart2
+{
+
+	
+	PlotPart2UtlPole	startSide;
+	
+	PlotPart2UtlPole	endSide;
+
+
+	Transform[]	tfStartSides;
+	
+	Transform[]	tfEndSides;
+	
+
+
+	public void setUtlPoleLink( PlotPart2UtlPole pole )
+	{
+
+		if( pole.tf.position == tf.position )
+		{
+
+		}
+
+	}
+
+	
+	public override void fallDown( Transform tfStructure, float pressure, Vector3 direction, Vector3 point )
+	{
+
+		cut();
+
+		emitSpark( point );
+
+		Destroy( gameObject );
+
+	}
+
+	
+	void emitSpark( Vector3 point )
+	{
+		
+		
+		
+	}
+
+	
+	void cut()
+	{
+
+		if( startSide != null ) showCutcables( tfStartSides, true );
+
+		if( endSide != null ) showCutcables( tfEndSides, false );
+
+	}
+	
+	public void cut( PlotPart2UtlPole brokenPole )
+	{
+
+		if( brokenPole == startSide )
+		{
+
+			if( endSide != null ) showCutcables( tfEndSides, false );
+
+		}
+		else if( brokenPole == endSide )
+		{
+			
+			if( startSide != null ) showCutcables( tfStartSides, true );
+
+		}
+
+	}
+
+
+
+	void showCutcables( Transform[] tfSides, bool isStartSide )
+	{
+		foreach( var tfSide in tfSides )
+		{
+
+			var rot = isStartSide? tf.rotation: Quaternion.Inverse( tf.rotation );
+
+			var cutcable = (GameObject)Instantiate( SystemManager.cutcablePrefab, tfSide.position, rot );
+
+			cutcable.transform.parent = tfSide;
+
+		}
+	}
+
+
+}

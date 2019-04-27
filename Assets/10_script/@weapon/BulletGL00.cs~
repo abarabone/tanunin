@@ -1,0 +1,48 @@
+using UnityEngine;
+using System.Collections;
+
+using ul = UserLayer;
+
+
+public class BulletGL00 : BulletBase
+{
+	
+	public Rigidbody	rb;
+	
+	
+	void Start()
+	{
+		
+//		rb.AddForce( tf.forward * 30.0f, ForceMode.VelocityChange );
+		
+		prePos = rb.position;
+		
+	}
+	
+	
+	void FixedUpdate()
+	{
+		
+		var move = rb.position - prePos;
+		
+		var ray = new Ray(  prePos, move );
+		
+		RaycastHit	res;
+		
+		if( Physics.Raycast( ray, out res, move.magnitude, ul.bulletHitable ) )
+		{
+			
+			Destroy( gameObject );
+			
+			landingPrefab.emitExplode( res.point, Quaternion.identity );
+			
+		}
+		
+		
+		prePos = rb.position;
+		
+		rangeProcessing( move.magnitude );
+		
+	}
+	
+}

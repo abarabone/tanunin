@@ -1,0 +1,355 @@
+using UnityEngine;
+using System.Collections;
+using System.Collections.Generic;
+
+
+struct PackInfoUnit
+{
+	public PackInfoUnit( Texture2D tex )
+	{
+		texture = tex;
+		rect = new Rect();
+	}
+	
+	public Texture2D	texture;
+	public Rect			rect;
+}
+
+class PackInfo
+{
+	
+	private Dictionary<int,PackInfoUnit>	mainTextureInfos = new Dictionary<int,PackInfoUnit>( 256 );
+	
+	
+	public void add( Texture2D tex )
+	{
+		var texId = tex.GetInstanceID();//Debug.Log(texId);
+		
+		if( !mainTextureInfos.ContainsKey(texId) )
+		{
+			
+			mainTextureInfos[texId] = new PackInfoUnit( tex );
+		//	Debug.Log( tex.name +" "+ tex.GetInstanceID() +":"+ tex.GetHashCode() );
+				
+		}
+	}
+	
+	public Rect getRect( Texture tex )
+	{
+		return mainTextureInfos[ tex.GetInstanceID() ].rect;
+	}
+	
+	
+	public Texture2D[] getTextrueArray()
+	{
+		var texs = new Texture2D[ mainTextureInfos.Count ];
+		
+		var i = 0;
+		
+		foreach( var info in mainTextureInfos.Values )
+		{
+			texs[i++] = info.texture;
+		}
+		
+		return texs;
+	}
+	
+	public void setRectArray( Rect[] rects )
+	{
+		var i = 0;
+		
+		var keys = new int[ mainTextureInfos.Count ];
+		mainTextureInfos.Keys.CopyTo( keys, 0 );
+		
+	//	foreach( var ipair in mainTextureInfos )
+		foreach( var key in keys )
+		{
+			var pinfo = new PackInfoUnit();
+			
+			pinfo.texture	= mainTextureInfos[key].texture;//ipair.Value.texture;
+			pinfo.rect		= rects[i++];
+			
+		//	mainTextureInfos[ipair.Key] = pinfo;
+			mainTextureInfos[key] = pinfo;
+		}
+	}
+	
+}
+
+
+public class TexturePacker
+{
+	
+	List<MeshRenderer[]>	mrsList = new List<MeshRenderer[]>( 128 );
+	
+	BitBoolArray	markuv = new BitBoolArray( 2048 );
+	
+	PackInfo	info = new PackInfo();
+	
+	MeshOverlapChecker	olap = new MeshOverlapChecker();
+	
+	int	maxTextureSize = 1024;
+	
+	
+	public TexturePacker( int max )
+	{
+		maxTextureSize = max;
+	}
+	
+	
+	public void regist( GameObject go )
+	{
+		
+		var mrs = go.GetComponentsInChildren<MeshRenderer>( false );
+		
+		foreach( var mr in mrs )
+		{
+		//	Debug.Log( mr.name );
+			regist( mr.materials );
+			
+		}
+		
+		mrsList.Add( mrs );
+		
+	}
+	
+	void regist( Material[] mats )
+	{
+		
+		foreach( var mat in mats )
+		{
+			
+			regist( mat.mainTexture );
+			
+		}
+		
+	}
+	
+	void regist( Texture tex )
+	{
+		
+		var tex2d = tex as Texture2D;
+		
+		if( tex2d != null )
+		{
+		//	Debug.Log( tex.name );
+			info.add( tex2d );
+			
+		}
+		
+	}
+	
+	
+	public void pack( string mainShaderName, string effectiveShaderName )
+	{
+		
+		var mainShader		= Shader.Find( mainShaderName );
+		var effectiveShader	= Shader.Find( effectiveShaderName );
+		
+		var pmat = new Material( mainShader );
+		var emat = new Material( effectiveShader );
+		
+		var ptex = new Texture2D( maxTextureSize, maxTextureSize );
+		
+		
+		var rects = ptex.PackTextures( info.getTextrueArray(), 0, maxTextureSize, true );
+		
+		info.setRectArray( rects );
+		
+		
+		pmat.mainTexture = ptex;
+		
+		
+		
+		foreach( var mrs in mrsList )
+		{
+			foreach( var mr in mrs )
+			{
+				
+				var mf = mr.GetComponent<MeshFilter>();
+			//	Debug.Log( mf.name +" mesh:"+ mf.mesh.GetInstanceID() +"/"+ mf.sharedMesh.GetInstanceID() +" mat0:"+ mr.materials[0].GetInstanceID() +"/"+ mr.sharedMaterials[0].GetInstanceID() );
+				
+				var mesh = mf.sharedMesh;
+				
+				if( !olap.contains(mesh) )
+				{
+					
+					if( mesh.normals.Length == 0 )
+					{
+						mesh.RecalculateNormals();
+					//	Debug.Log( "RecalculateNormals" );
+					}
+					
+					markuv.reinit( mesh.vertexCount );
+					var dstuvs = new Vector2[ mesh.vertexCount ];
+					
+					var srcMats = mr.sharedMaterials;
+					
+					int[] dstMainIdxs;
+					int[] dstEffectiveIdxs;
+					allocIndicesArray( mr, mesh, out dstMainIdxs, mainShader, out dstEffectiveIdxs, effectiveShader );
+					
+					var imidx = 0;
+					var ieidx = 0;
+					
+					for( var i=mesh.subMeshCount; i-->0; )
+					{
+						
+						var mat = srcMats[i];
+						
+						if( mat.mainTexture == null ) continue;
+						
+						var rect = info.getRect( mat.mainTexture );
+						
+						var srcIdxs = mesh.GetTriangles(i);
+						
+						if( srcIdxs.Length > 0 )
+						{
+							
+							
+							reuv( srcIdxs, dstuvs, mesh.uv, rect );
+							
+							
+							if( mat.shader == mainShader )
+							{
+								srcIdxs.CopyTo( dstMainIdxs, imidx );
+								imidx += mesh.GetTriangles(i).Length;
+							}
+							else if( mat.shader == effectiveShader )
+							{
+								srcIdxs.CopyTo( dstEffectiveIdxs, ieidx );
+								ieidx += mesh.GetTriangles(i).Length;
+							}
+							
+						}
+						
+					}
+					
+					
+					var dstMesh = mesh;//new Mesh();
+					
+					dstMesh.vertices = mesh.vertices;
+					dstMesh.normals = mesh.normals;
+					dstMesh.uv = dstuvs;
+					
+					if( ieidx > 0 )
+					{
+						var dstMats = new Material[2];
+						dstMats[0] = pmat;
+						dstMats[1] = emat;
+						mr.sharedMaterials = dstMats;
+						
+						dstMesh.subMeshCount = 2;
+						dstMesh.SetTriangles( dstMainIdxs, 0 );
+						dstMesh.SetTriangles( dstEffectiveIdxs, 1 );
+					}
+					else
+					{
+						var dstMats = new Material[1];
+						dstMats[0] = pmat;
+						mr.sharedMaterials = dstMats;
+						
+						dstMesh.subMeshCount = 1;
+						dstMesh.SetTriangles( dstMainIdxs, 0 );
+					}
+					
+					dstMesh.Optimize();
+					
+					mf.sharedMesh = dstMesh;
+					
+					
+				}
+				
+				
+				
+			/*	
+				if( mesh.GetTriangles(1).Length > 0 )
+				{
+					var dstMats = new Material[2];
+					dstMats[0] = pmat;
+					dstMats[1] = emat;
+					mr.materials = dstMats;
+				}
+				else
+				{
+					var dstMats = new Material[1];
+					dstMats[0] = pmat;
+					mr.materials = dstMats;
+				}
+			*/	
+			}
+		}
+		
+	}
+	
+	void allocIndicesArray( MeshRenderer mr, Mesh mesh,
+			out int[] midxs, Shader mshader, out int[] eidxs, Shader eshder )
+	{
+		
+		var mlen = 0;
+		var elen = 0;
+		
+		var mats = mr.sharedMaterials;
+			
+		for( var i=mesh.subMeshCount; i-->0; )
+		{
+			if( mats[i].shader == mshader )
+			{
+				mlen += mesh.GetTriangles( i ).Length;
+			}
+			else if( mats[i].shader == eshder )
+			{
+				elen += mesh.GetTriangles( i ).Length;
+			}
+		}
+		
+		midxs = new int[ mlen ];
+		eidxs = new int[ elen ];
+		
+	}
+	
+	void reuv( int[] idxs, Vector2[] dstuvs, Vector2[] srcuvs, Rect rect )
+	{
+			
+		foreach( var idx in idxs )
+		{
+			
+			if( !markuv[idx] )
+			{
+				
+				dstuvs[idx].x = rect.x + srcuvs[idx].x * rect.width;
+				dstuvs[idx].y = rect.y + srcuvs[idx].y * rect.height;
+				
+				markuv[idx] = true;
+			}
+			
+		}
+		
+	}
+	
+	
+}
+
+
+class MeshOverlapChecker
+{
+	
+	HashSet<Mesh>	ids	= new HashSet<Mesh>();
+	
+	
+	public bool contains( Mesh m )
+	{
+		
+		var res = ids.Contains( m );
+		
+		if( !res )
+		{
+			ids.Add( m );
+		}
+		
+		return res;
+		
+	}
+	
+}
+

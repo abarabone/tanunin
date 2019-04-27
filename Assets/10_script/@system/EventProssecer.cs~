@@ -1,0 +1,64 @@
+using UnityEngine;
+using System.Collections;
+using System.Collections.Generic;
+
+
+public class MissionEventProssecer : MonoBehaviour
+// イベントはホストがすべて管理する
+// ネットワークごしの受け側は、イベントチェーンは処理されず、直に送られてくる
+{
+	
+	ChainHolder[]	events = new ChainHolder[ EventUnitBase.enConditionType.length ];
+	// あとは時間をまつだけのイベントは [enConditionType.time] に来る、また [enConditionType.time] だけソート済みとする
+	
+}
+
+
+
+
+struct ChainHolder
+{
+	EventUnitBase	first;
+	EventUnitBase	last;
+}
+
+
+public class EventUnitBase
+{
+	
+	EventUnitBase	prev;
+	EventUnitBase	next;
+	
+	
+	public enum enConditionType
+	{
+		time,				// 単純に時間
+		remainInGroup,		// グループ内残り敵数
+		remainDurability,	// 敵残り耐久力
+		wasAttacked,		// 攻撃された
+		
+		length
+	}
+	
+	public enum enEventType
+	{
+		createGroup,
+		spawnCharacter,
+		
+		length
+	}
+	
+	public enConditionType	conditionType;
+	
+	public enEventType	eventType;
+	
+	public float	time;	// 条件が成立してから駆動までの時間。
+	
+}
+
+
+
+
+
+
+

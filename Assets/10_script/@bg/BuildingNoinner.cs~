@@ -1,0 +1,234 @@
+using UnityEngine;
+using System.Collections;
+
+[RequireComponent(typeof(Rigidbody))]
+public class Building : _HitProcessBase
+{
+	
+	public Transform	tf		{ get; private set; }
+	public Rigidbody	rb		{ get; private set; }
+	
+	public GameObject	near	{ get; private set; }
+	public GameObject	far		{ get; private set; }
+	
+	public StructureBonedMeshRender	farRender	{ get; set; }
+	
+	public int	partId	{ get; set; }
+	
+	
+	
+	public int ownedPartsLength	{ get; set; }
+	
+	
+	float farVisible = 1.0f;
+	
+	bool moving;
+	bool wasDestructed;
+	
+	
+	Collider[]	colliders	// 単なるキャッシュなので毎回求めてもいいのかも
+	{ get{ return near.GetComponentsInChildren<Collider>(true); } }
+//	{ set; get; }
+	
+	Transform[]	ntfs	// 暫定
+	{ get{ return near.GetComponentsInChildren<Transform>(true); } }
+	Rigidbody[]	nrgs	// 暫定
+	{ get{ return near.GetComponentsInChildren<Rigidbody>(true); } }
+	
+	
+	public Vector3	offset	{ get; set; }//
+	public float	size	{ get; set; }//
+	
+	
+	public void initAttatchedNear( GameObject nearInstance )
+	{
+		
+		var nearSwitch	= nearInstance.GetComponent<BuildingNearSwitch>();
+		
+		near = nearInstance;
+		
+		nearSwitch.structure = this;
+		
+		
+		var tfnear = nearInstance.transform;
+		
+		tfnear.parent = transform;
+		
+		
+		setNearVisibility( false );
+		near.GetComponent<SphereCollider>().enabled = true;
+	//	far.transform.GetChild(0).rigidbody.detectCollisions = false;// これがあるとスフィアキャストが反応しない
+		
+	//	var det = ((GameObject)Instantiate( far.transform.GetChild(0).gameObject, tf.position, tf.rotation )).transform.parent = near.transform;//
+//		colliders = near.GetComponentsInChildren<Collider>();//
+//		foreach( var col in colliders ) col.enabled = false;//true;
+//		near.GetComponent<MeshRenderer>().enabled = false;
+	//	near.transform.position += new Vector3( 0.0f, 500.0f, 0.0f );
+	//	near.SetActive( false );
+	//	foreach( var rg in near.GetComponentsInChildren<Rigidbody>() ) rg.detectCollisions = false;
+	}
+	
+	
+	public void initFar()
+	{
+		
+		var farSwitch	= GetComponentInChildren<BuildingFarSwitch>();
+		
+		far = farSwitch.gameObject;
+		
+		farSwitch.structure = this;
+		
+		
+		tf = transform;
+		
+		rb = rigidbody;
+		
+	}
+	
+	
+	void setNearVisibility( bool visibility )
+	{
+		near.GetComponent<MeshRenderer>().enabled = visibility;
+	}
+	void setFarVisibility( bool visibility, float visibilityValue )
+	{
+		farVisible = visibilityValue;
+		farRender.setBoneProperty( partId, tf.localPosition, tf.localRotation, visibilityValue );
+	}
+	/*
+	void setNearVisibility( bool visibility )
+	{
+		near.GetComponent<MeshRenderer>().enabled = visibility;
+		
+	//	foreach( var rg in nrgs ) rg.detectCollisions = false;
+		foreach( var col in colliders ) col.enabled = visibility;
+	}
+	void setFarVisibility( bool visibility, float visibilityValue )
+	{
+	//	far.SetActive( visibility );
+		
+		farVisible = visibilityValue;
+		farRender.setBoneProperty( partId, tf.localPosition, tf.localRotation, visibilityValue );
+	}
+	*/
+	public void switchToNear()
+	{
+		setFarVisibility( false, 0.0f );
+		
+		setNearVisibility( true );
+	//	if( rb.IsSleeping() ) setNearVisibility( true );
+	//	else near.GetComponent<MeshRenderer>().enabled = true;
+	}
+	public void switchToFar()
+	{
+		setNearVisibility( false );
+		
+		setFarVisibility( true, 1.0f );
+	}
+	
+	
+	
+	
+	public override enType blasted( float damage, float pressure, Vector3 center, float radius )
+	{
+		
+	//	var expdir = (tf.position - center).normalized;
+		
+		var num = 0;
+		foreach( var ihp in near.GetComponentsInChildren<BuildingPart>(true) )
+		{
+			if( Random.value > 0.8f )
+			{
+				var itf = ihp.transform;
+				var expdir = (itf.position - tf.position);//.normalized;
+				
+				ihp.shot( damage, 100.0f, expdir, itf.position );
+			}
+			else num++;
+		}
+	//	Debug.Log( num );
+		if( num < 70 )
+		{
+			wasDestructed = true;
+			
+			Destroy( tf.GetChild(0).GetComponent<Collider>(), 5.0f );
+			
+			Destroy( gameObject, 8.0f );
+			
+		}
+		
+		rigidbody.isKinematic = false;
+		rigidbody.WakeUp();
+		if( !moving ) StartCoroutine( setShaderProperty() );
+		
+		rigidbody.AddExplosionForce( pressure * 100.0f, center, radius, 1.0f, ForceMode.Impulse );//
+		
+		
+		return enType.softStuff;
+		
+	}
+	
+	void OnCollisionEnter( Collision col )
+	// 何かと（エンベロープが）衝突した場合、とにかくシェーダーへ位置情報をセットする。
+	{
+		if( !rb.isKinematic && !moving ) StartCoroutine( setShaderProperty() );
+	}
+	
+	
+	IEnumerator setShaderProperty()
+	{
+	//	foreach( var col in colliders ) col.enabled = false;
+		
+		var prepos = tf.position;
+		var sqrmoved = 0.0f;
+		
+		
+		moving = true;
+		
+		do
+		{
+			
+			if( farRender.mr.isVisible )
+			// 剛体がスリープになるまで、毎フレーム（視錐台にある時のみ）姿勢情報をシェーダにセットし続ける。
+			{
+	//			Debug.Log("v");
+				farRender.setBoneProperty( partId, tf.localPosition, tf.localRotation, farVisible );
+				farRender.encapsulateBounds( tf, offset, size );//
+			}
+			
+			yield return 0;
+		}
+		while( !rigidbody.IsSleeping() );
+		
+		// 最後にもう一回
+		farRender.setBoneProperty( partId, tf.localPosition, tf.localRotation, farVisible );
+		farRender.encapsulateBounds( tf, offset, size );//
+		
+		
+		rigidbody.isKinematic = true;
+		
+		moving = false;
+		
+		var radius = near.GetComponent<SphereCollider>().radius;
+		if( (tf.position - prepos).sqrMagnitude > radius * radius ) farRender.requestRecalculateAllBounds( 30.0f );// 再計算をゆるく促す。
+	//	farRender.requestRecalculateAllBounds( 60.0f );// 再計算をゆるく促す。
+		
+	//	if( !far.activeSelf ) foreach( var col in colliders ) col.enabled = true;
+	}
+	
+	
+	
+	void OnDestroy()
+	{
+		if( wasDestructed )
+		{
+			farRender.setBoneProperty( partId, tf.localPosition, tf.localRotation, 0.0f );
+			farRender.requestRecalculateAllBounds( 30.0f );// 再計算をゆるく促す。
+			
+		//	Debug.Log( "dest" );
+		}
+	}
+	
+}
+
+

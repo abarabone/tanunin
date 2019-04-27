@@ -1,0 +1,30 @@
+using UnityEngine;
+using System.Collections;
+
+
+/*
+public class GamePad : MonoBehaviour
+{
+	
+	
+	public static string	lv	= "lv";
+	public static string	lh	= "lh";
+	public static string	rv	= "rv";
+	public static string	rh	= "rh";
+	
+	
+	public static string	maru	= "maru";
+	public static string	sankaku	= "sankaku";
+	public static string	shikaku	= "shikaku";
+	public static string	batsu	= "batsu";
+	
+	public static string	l1		= "l1";
+	public static string	l2		= "l2";
+	public static string	l3		= "l3";
+	public static string	r1		= "r1";
+	public static string	r2		= "r2";
+	public static string	r3		= "r3";
+	
+	
+}
+*/

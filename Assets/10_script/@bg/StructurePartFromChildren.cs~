@@ -1,0 +1,61 @@
+using UnityEngine;
+using System.Collections;
+
+public class StructurePartFromChildren : MonoBehaviour
+{
+	
+	public void combineChildren( bool editorMode, out Mesh resmesh, out MeshRenderer resmr )
+	{
+		
+		var cs = GetComponentsInChildren<MeshFilter>( true );
+		
+		var dstmi = new MeshInfo();
+		
+		var mf = gameObject.AddComponent<MeshFilter>();
+		var mr = gameObject.AddComponent<MeshRenderer>();
+		
+		
+		dstmi.fixNoNmsBids( cs );
+		
+		for( var i = 0; i < cs.Length; i++ )
+		{
+			
+			var srcmesh = cs[ i ].sharedMesh;
+			
+			var tf = cs[ i ].transform;
+			
+			var mt = new Matrix4x4();
+			mt.SetTRS( tf.localPosition, tf.localRotation, tf.localScale );
+			
+			dstmi.setIndices( srcmesh.triangles );
+			dstmi.setVertices( srcmesh.vertices, srcmesh.uv, ref mt );
+			
+		}
+		
+		
+		mf.sharedMesh = dstmi.createMesh();
+		
+		
+		var mat = cs[0].GetComponent<MeshRenderer>().sharedMaterial;
+		
+		mr.sharedMaterial = mat;
+		
+		
+		if( !editorMode )
+		{
+			Destroy( this );
+			
+			transform.DetachChildren();
+			
+			for( var i = 0; i < cs.Length; i++ ) Destroy( cs[i].gameObject );
+		}
+		
+		
+		resmesh = mf.sharedMesh;
+		resmr	= mr;
+	}
+	
+
+
+	
+}

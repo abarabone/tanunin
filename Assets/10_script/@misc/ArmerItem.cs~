@@ -1,0 +1,41 @@
+using UnityEngine;
+using System.Collections;
+
+public class ArmerItem : MonoBehaviour
+{
+	
+	public float	armor;
+	
+	public float	refreshTime;
+	public float	overRefreshTime;
+	public float	refreshDamage;
+	public float	overLifeRepairInSecond;
+	
+	
+	void OnTriggerEnter( Collider c )
+	{
+		
+		if( c.gameObject.layer == UserLayer._player )
+		{
+			
+			var clip = c.GetComponent<PcShoot>().changeSound;
+			
+			c.audio.PlayOneShot( clip );
+			
+			
+			var hp = c.GetComponent<PcHitProcess>();
+			
+			hp.setArmer( this );
+			
+		/*	
+			var dstmr = c.transform.Find( "body/Mesh" ).GetComponentInChildren<MeshRenderer>();
+			var srcmr = GetComponent<MeshRenderer>();
+			
+			dstmr.sharedMaterial.SetColor( "_Color", srcmr.sharedMaterial.color );
+		*/	
+		}
+		
+	}
+	
+	
+}

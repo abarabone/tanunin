@@ -1,0 +1,44 @@
+using UnityEngine;
+using System.Collections;
+
+public class ActivityGroup : MonoBehaviour
+{
+	
+	
+	public float	territory = 30.0f;
+	
+	public int	actType;
+	
+	
+	
+	
+	public ActivityGroup createGroup( Vector3 pos, float territory, int actType )
+	// プレハブから呼ばれる。自身を複製し、グループを作る。
+	{
+		
+		var gi = Instantiate( this.gameObject, pos, Quaternion.identity ) as GameObject;
+		
+		var ag = gi.GetComponent<ActivityGroup>();
+		
+		ag.actType = actType;
+		ag.territory = territory;
+		
+		return ag;
+		
+	}
+	
+	
+	
+	
+	// Use this for initialization
+	void Start()
+	{
+		
+	}
+	
+	// Update is called once per frame
+	void Update()
+	{
+		
+	}
+}

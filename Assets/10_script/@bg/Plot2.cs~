@@ -1,0 +1,122 @@
+using UnityEngine;
+using System.Collections;
+
+public class Plot2 : _StructureBase2
+{
+	
+	public Shader	srcShader;
+
+	public Shader	dstShader;
+
+	
+
+
+	public virtual void build()
+	{
+
+		var builder	= new NearStructureBuilder();
+
+
+
+		parts = builder.initParts( this.gameObject );
+
+		var mesh = builder.combineMesh( this.gameObject, parts );
+
+		var idList = builder.buildTriangleIndexToPartIdList( mesh, parts );
+
+
+
+		near = builder.createNearObject( tf, mesh, parts, dstShader );
+
+		near.layer	= UserLayer._fieldObject;
+
+
+
+		breaker.init( near, parts.Length, idList );
+		
+
+
+		nearRender	= near.GetComponent<StructureMeshRender2>();
+
+		nearRender.visibles.init( nearRender.visibles.fieldLength, true );//
+
+
+
+		setVisibleSwitch( near );	// near バウンディング作成
+		
+
+
+		var rb = gameObject.AddComponent<Rigidbody>();
+		
+		rb.isKinematic	= true;
+
+	}
+
+	void setVisibleSwitch( GameObject near )
+	{
+
+		var sphere = gameObject.AddComponent<SphereCollider>();
+
+		sphere.isTrigger	= true;
+
+		sphere.center	= nearRender.mr.bounds.center - near.transform.position;
+		
+		sphere.radius	= nearRender.mr.bounds.size.magnitude * 0.5f;
+
+
+		gameObject.layer	= UserLayer._bgPlotEnvelope;
+
+	}
+
+	
+	public override enType blasted( float damage, float pressure, float boringFactor, Vector3 center, float radius, int teamFlag )
+	{
+		
+	//	var localCenter	= tf.InverseTransformPoint( center );
+		
+		//	var sqrRadius	= radius * radius;
+		
+		foreach( var part in parts )
+		{
+			
+			if( nearRender.isVisible( part.partId ) )
+			{
+				var direction = part.tf.position - center;//localCenter;
+				
+				var sqrRadius	= ( radius + part.radius ) * ( radius + part.radius );
+				
+				if( direction.sqrMagnitude < sqrRadius )
+				{
+
+					var worldDirection = tf.TransformDirection( direction );
+					
+					part.fallDown( breaker, pressure * 10.0f, worldDirection, center );
+
+					//	breaker.breakProcess( part, pressure * 10.0f, worldDirection, center );
+				}
+			}
+			
+		}
+		
+		return enType.softStuff;
+		
+	}
+
+	
+	// 遠近切り替え処理
+	
+	public override void switchToNear()
+	{
+
+		near.SetActive( true );
+		
+	}
+	
+	public override void switchToFar()
+	{
+		
+		near.SetActive( false );
+
+	}
+
+}

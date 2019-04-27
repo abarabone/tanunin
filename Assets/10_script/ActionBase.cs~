@@ -1,0 +1,34 @@
+using UnityEngine;
+using System.Collections;
+
+
+
+
+public abstract class ActionBase : MonoBehaviour
+{
+
+	public ActivityGroup	joinedGroup;
+	
+	
+	public Transform	tf;
+	public Rigidbody	rb;
+	public Animator		anim;
+	public Transform	tfBody;
+	
+	
+	
+	protected delegate void MoveFunc();
+	
+	protected MoveFunc	physMove;
+	
+	
+	
+	
+	void FixedUpdate()
+	{
+		
+		physMove();
+		
+	}
+	
+}

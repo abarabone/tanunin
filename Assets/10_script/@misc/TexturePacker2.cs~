@@ -1,0 +1,52 @@
+﻿using UnityEngine;
+using System.Collections;
+using System.Collections.Generic;
+
+
+
+
+
+
+
+
+
+/*
+public abstract class _TexturePacker
+{
+
+
+	public abstract void regist( GameObject go );
+
+	public abstract void pack();
+
+}
+
+
+class 
+	public abstract void modifyUv( Mesh mesh, Texture2D tex );
+
+
+
+
+
+
+
+
+public class SimpleTexturePacker : _TexturePacker
+{
+
+	Texture2D	dstTexture;
+
+	Dictionary< Texture2D, Rect >	uvofs;
+
+
+	public SimpleTexturePacker( Shader srcShader, Shader dstShader, int atlasMaxSize = 2048 );
+
+
+	public SimpleTexturePacker()
+	{
+		uvofs = new Dictionary< Texture2D, Rect >(  );
+	}
+
+}
+*/

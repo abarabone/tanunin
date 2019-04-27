@@ -1,0 +1,291 @@
+using UnityEngine;
+using System.Collections;
+using System.Collections.Generic;
+using System.Text;
+
+
+
+
+[System.Serializable]
+public class CharacterListHolder
+{
+	public Shader			dstShader;
+	public _ActionBase[]	prefabActions;
+}
+
+
+
+
+public class CharacterTemplateHolder : MonoBehaviour
+{
+
+	Dictionary<int,InstanceStocker> instancePools;// = new Dictionary<int,InstanceStocker>( 128 );
+	
+	TexturePacker	texpacker;
+	
+//	SkinnedMeshOverlapChecker	olap;
+	
+	Transform	tf;
+	
+	
+	public Shader srcShader;
+	public Shader dstShader;
+	
+	public CharacterListHolder	prefabList;
+	
+	
+	public void init()
+	{
+		clear();
+		
+		instancePools = new Dictionary<int,InstanceStocker>( 128 );
+		
+		tf = transform;
+	}
+	
+	public void clear()
+	{
+		if( instancePools != null )
+		{
+			foreach( var istocker in instancePools.Values )
+			{
+				GameObject.Destroy( istocker.template );
+			}
+			
+		//	instancePools.Clear();
+			
+			instancePools = null;
+		}
+		
+		texpacker	= null;
+		
+	//	olap		= null;
+	}
+	
+	
+	void Awake()
+	{
+		init();
+		
+		loadPrefabList();
+	}
+	
+	public void loadPrefabList()
+	{
+		dstShader = prefabList.dstShader;
+		
+		foreach( var act in prefabList.prefabActions )
+		{
+			regist( act );
+		//	packTexture();
+		//	combineMesh( act );
+		}
+		packTexture();
+		combineAllMeshes();
+	}
+	
+	
+	public void regist( _ActionBase prefabAction )
+	{
+		
+		var prefab = prefabAction.gameObject;//Debug.Log( prefab );
+		
+		var id = prefab.GetInstanceID();//Debug.Log( id );
+		
+		
+		if( !instancePools.ContainsKey( id ) )
+		{
+			
+			var istocker = new InstanceStocker( prefab, tf );
+			
+			instancePools[ id ] = istocker;
+			
+			
+			if( texpacker == null ) texpacker = new TexturePacker( srcShader );
+			
+			if( istocker.tfSkinnedBody != null )
+			{
+				texpacker.registSkinned( istocker.template );
+			}
+			else
+			{
+				texpacker.regist( istocker.template );
+			}
+			
+		}
+		
+	}
+	
+	
+	public void packTexture()
+	// regist() の度に呼べば、そのプレハブの範囲でテクスチャをパックする。
+	// combineMesh() の直前に呼べば、全てのプレハブでテクスチャをパックする。
+	// 要は、呼ぶごとにシェアードメッシュのＵＶとシェアードマテリアルを書き換えてるということ。
+	{	
+		texpacker.pack();
+		
+		texpacker = null;
+	}
+/*	
+	public void combineMesh( _ActionBase prefabAction )
+	// うまくうごかない
+	{
+		var prefab = prefabAction.gameObject;
+		
+		var id = prefab.GetInstanceID();
+		
+		if( instancePools.ContainsKey( id ) )
+		{
+			if( olap == null ) olap = new SkinnedMeshOverlapChecker();
+			
+			olap.combine( instancePools[id].template.transform.Find( "body/Mesh" ).gameObject, dstShader );
+		}
+	}
+*/	
+	
+	public void combineAllMeshes()
+	// プレハブコレクションのメッシュを重複なし（メッシュＩＤより）で単一化する。
+	{
+		
+	//	if( olap == null ) olap = new SkinnedMeshOverlapChecker();
+		var olap = new SkinnedMeshOverlapChecker();
+		
+		foreach( var istocker in instancePools.Values )
+		{
+			
+			if( istocker.tfSkinnedBody != null )
+			{
+				olap.combine( istocker.tfSkinnedBody.gameObject, dstShader );
+			}
+			
+		}
+		
+	}
+	
+	
+	public GameObject spawn( _ActionBase prefabAction, Vector3 pos, Quaternion rot )
+	{
+		
+		var prefab = prefabAction.gameObject;
+		
+		var id = prefab.GetInstanceID();
+		
+		
+		if( instancePools.ContainsKey( id ) )
+		{
+			
+			return instancePools[ id ].spawn( pos, rot );
+			
+		}
+		else
+		{
+		/*	
+			regist( prefabAction );
+			packTexture();
+			combineMesh( prefabAction );
+			
+			return instancePools[ id ].spawn( pos, rot );//spawn( prefabAction, pos, rot );
+		*/	return null;
+			
+		}
+		
+	}
+	
+	
+	
+}
+
+
+class SkinnedMeshOverlapChecker
+// ＵＶ処理された後のスキンメッシュを結合する。
+// 
+{
+	
+	Dictionary<string,CombineSkinnedMesh>	meshes = new Dictionary<string,CombineSkinnedMesh>( 64 );
+	
+	StringBuilder	sb = new StringBuilder( 11 * 16 + 16 );// １１桁×個数＋":"×個数
+	// 初期値はメッシュ最大１６を想定
+	
+	public void combine( GameObject go, Shader shader )
+	{
+		
+		sb.Length = 0;
+		
+		var smrs = go.GetComponentsInChildren<SkinnedMeshRenderer>( true );
+		
+		foreach( var smr in smrs )
+		{
+			sb.Append( smr.sharedMesh.GetInstanceID() ).Append( ":" );
+		}
+		
+		
+		var key = sb.ToString();
+	//	Debug.Log( go.transform.parent.parent.name +" "+ key +" "+ meshes.ContainsKey(key) );
+		
+		
+		var	csm = new CombineSkinnedMesh();
+		
+		if( !meshes.ContainsKey( key ) )
+		{
+			
+			csm.combine( smrs );
+			
+			meshes[ key ] = csm;
+			
+		}
+		else
+		{
+			
+			csm = meshes[ key ];
+			
+		}
+		
+		
+		csm.addRenderer( go, smrs, shader );
+		
+		
+	}
+	
+}
+
+
+
+public struct InstanceStocker
+// ぷーリングさせる予定
+{
+	
+	public GameObject	template		{ get; private set; }
+	
+	public Transform	tfSkinnedBody	{ get; private set; }
+	
+	
+	public InstanceStocker( GameObject prefab, Transform parent, int capacity = 0 )
+	// テンプレート作成
+	{
+		
+		template = GameObject.Instantiate( prefab, Vector3.zero, Quaternion.identity ) as GameObject;
+		
+		template.SetActive( false );
+		
+		var tf = template.transform;
+		
+		tf.parent = parent;
+		
+		tfSkinnedBody = tf.Find( "body/Mesh" );
+				
+	}
+	
+	
+	public GameObject spawn( Vector3 pos, Quaternion rot )
+	{
+		
+		var go = GameObject.Instantiate( template, pos, rot ) as GameObject;
+		
+		go.SetActive( true );
+		
+		return go;
+		
+	}
+	
+}
+

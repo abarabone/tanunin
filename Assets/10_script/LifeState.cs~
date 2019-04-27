@@ -1,0 +1,10 @@
+using UnityEngine;
+using System.Collections;
+
+public abstract class LifeState : MonoBehaviour
+{
+
+	public abstract void struck();
+	
+	
+}

@@ -1,0 +1,31 @@
+using UnityEngine;
+using System.Collections;
+
+public abstract class _StructureReplicaBase2 : _StructureBase2
+{
+	
+	public GameObject	prefab;
+	
+
+	
+	public virtual void attatchNear( ref StructureTemplateUnit template )
+	{
+
+		near	= (GameObject)Instantiate( template.nearObject, tf.position, tf.rotation );
+
+		nearRender	= near.GetComponent<StructureMeshRender2>();
+		nearRender.visibles.init( nearRender.visibles.fieldLength, true );//
+
+
+		parts		= template.parts;
+
+
+		breaker.init( near, parts.Length, template.triIndexToPartIdList );
+
+
+		near.transform.parent	= tf;
+
+	}
+
+
+}

@@ -1,0 +1,153 @@
+using UnityEngine;
+using System.Collections;
+
+public class _WaponBase : MonoBehaviour
+{
+	
+//	public Transform	tf;
+	public Transform	tfMuzzle;
+	
+	public _BulletBase	bullet;
+	
+	public string	waponName;
+	
+	
+	protected MeshRenderer	mr;
+	protected MeshFilter	mf;
+	protected AudioSource	sound;
+	
+	public float	nextFireAbleTime;	// 次弾装填間隔
+	public int		maxBullets; 		// 最大弾数
+	public float	reloadTime;			// リロード時間
+	public float	emitAngle;			// 射出角度（マイナスが上）
+	public float	lowAccuracy;		// 誤差角度
+	public float	range;				// 射程距離
+	public float	readyTime;			// 武器装備してから発射できるように構えるまでの時間
+	public float	triggerRagTime;		// トリガを引いてからのラグタイム
+	
+	protected float	nextFireTime;
+	
+	public float	reastReloadTime	{ get; protected set; }
+	public int		reastBullets	{ get; protected set; }
+	
+	public bool nowReloading
+	{
+		get{ return reastReloadTime > 0.0f; }
+	}
+	
+	public bool nowFireAble
+	{
+		get{ return nextFireTime <= Time.time && reastBullets > 0 && !nowReloading; }
+	}
+	
+	public bool isBearHand
+	{
+		get{ return mf.sharedMesh == null; }
+	}
+	
+	
+	
+	public virtual void mainFire( _ActionBase act ){}
+	
+	public virtual void subFire( PcAction act ){}
+	public virtual void subFireOff( PcAction act ){}
+	
+	
+	public void init()
+	{
+		mr = GetComponent<MeshRenderer>();
+		mf = GetComponent<MeshFilter>();
+		sound = audio;
+		
+		reastBullets = maxBullets;
+		reastReloadTime = 0.0f;
+	}
+	
+	public void readyAtEquip( bool visible )
+	{
+		if( mr ) mr.enabled = visible;
+	}
+	
+	public void readyAtChanging()
+	{
+		var readyFireTime = readyTime + Time.time;
+		
+		if( readyFireTime > nextFireTime ) nextFireTime = readyFireTime;
+	}
+	
+	public bool readyAtPushTrigger()
+	{
+		var on = GamePad._r1;//Input.GetButtonDown(GamePad.r1);
+		
+		if( on )
+		{
+			var triggerRagFireTime = triggerRagTime + Time.time;
+			
+			if( triggerRagFireTime > nextFireTime ) nextFireTime = triggerRagFireTime;
+		}
+		
+		return on;
+	}
+	
+	
+	protected void checkMagazine()
+	{
+		
+		if( --reastBullets <= 0 )
+		{
+			reastReloadTime = reloadTime;
+		}
+		
+	}
+	
+	public void checkReload()
+	{
+		
+		if( reastReloadTime > 0.0f )
+		{
+			
+			reastReloadTime -= Time.deltaTime;
+			
+		}
+		else
+		{
+			
+			if( reastBullets <= 0 )
+			{
+				reastBullets = maxBullets;
+			}
+			
+		}
+		
+	}
+	
+	public void forceReload()
+	{
+		reastBullets = 0;
+		
+		reastReloadTime = reloadTime;
+	}
+	
+	
+	void OnTriggerEnter( Collider otherCollider )
+	// 武器とり用
+	{
+		
+		if( otherCollider.gameObject.layer == UserLayer._player )
+		{
+			var shooter = otherCollider.GetComponent<PcShoot>();
+			
+			if( shooter )
+			{
+				
+				shooter.getWapon( this );
+				
+				reastReloadTime = 1.2f;
+				
+			}
+		}
+		
+	}
+	
+	
+}

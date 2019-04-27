@@ -1,0 +1,50 @@
+﻿using UnityEngine;
+using System.Collections;
+
+public class CutCable : MonoBehaviour
+{
+
+	public CutCable		cutcableLink	{ get; set; }
+
+
+	public Rigidbody[]	rbs;
+
+	public LineRenderer	line;
+
+	Rigidbody	rb;
+
+
+	void Start()
+	{
+
+		rb = rigidbody;
+
+		line.SetPosition( 0, transform.position );
+
+	}
+
+
+	void Update()
+	{
+
+		line.SetPosition( 0, rb.position );
+
+
+		for( var i = 0; i < rbs.Length; i++ )
+		{
+
+			line.SetPosition( i + 1, rbs[i].position );
+
+
+			if( rbs[ rbs.Length - 1 ].velocity.sqrMagnitude < 1.0f )
+			{
+				rbs[ rbs.Length - 1 ].AddRelativeForce( Random.insideUnitSphere * 1000.0f );
+			}
+
+		}
+
+	}
+
+
+
+}

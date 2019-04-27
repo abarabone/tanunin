@@ -1,0 +1,14 @@
+using UnityEngine;
+using System.Collections;
+
+public abstract class _ChHitProcessBase : _HitProcessBase
+{
+	
+	public float	life;
+	
+	
+	public _LandingEffectBase	deadLandingPrefab;
+	
+	
+	
+}

@@ -1,0 +1,64 @@
+using UnityEngine;
+using System.Collections;
+
+using hitType = _HitProcessBase.enType;
+
+
+public class LandingTable : MonoBehaviour
+{
+	
+	public _LandingEffectBase	defaultStaff;
+	public _LandingEffectBase	creature;
+	public _LandingEffectBase	softStuff;
+	public _LandingEffectBase	hardStuff;
+	public _LandingEffectBase	soil;
+	public _LandingEffectBase	sand;
+	public _LandingEffectBase	mad;
+	public _LandingEffectBase	glass;
+	public _LandingEffectBase	water;
+	public _LandingEffectBase	factQ;
+	
+	
+	public _LandingEffectBase[] landings
+	{
+		get
+		{
+			_LandingEffectBase[] lebs = new _LandingEffectBase[ (int)hitType.length ];
+			
+			lebs[ (int)hitType.defaultStuff ]	= defaultStaff;
+			lebs[ (int)hitType.creature ]		= creature;
+			lebs[ (int)hitType.softStuff ]		= softStuff;
+			lebs[ (int)hitType.hardStuff ]		= hardStuff;
+			lebs[ (int)hitType.soil ]			= soil;
+			lebs[ (int)hitType.sand ]			= sand;
+			lebs[ (int)hitType.mad ]			= mad;
+			lebs[ (int)hitType.glass ]			= glass;
+			lebs[ (int)hitType.water ]			= water;
+			lebs[ (int)hitType.factQ ]			= factQ;
+			
+			return lebs;
+		}
+	}
+	public _LandingEffectBase this[ hitType i ]
+	{
+		get
+		{
+			
+			switch( i )
+			{
+				case hitType.defaultStuff:	return defaultStaff;
+				case hitType.creature: 		return creature;
+				case hitType.softStuff: 	return softStuff;
+				case hitType.hardStuff: 	return hardStuff;
+				case hitType.soil:			return soil;
+				case hitType.sand:			return sand;
+				case hitType.mad:			return mad;
+				case hitType.glass:			return glass;
+				case hitType.water:			return water;
+				case hitType.factQ:			return factQ;
+				default:					return null;
+			}
+		}
+	}
+	
+}

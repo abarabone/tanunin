@@ -1,0 +1,18 @@
+using UnityEngine;
+using System.Collections;
+
+public class BuildingFarSwicth : MonoBehaviour
+{
+	
+	public GameObject	near { get; set; }
+	
+	
+	void OnTriggerEnter( Collider col )
+	{
+		
+		gameObject.SetActive( false );
+		
+		near.SetActive( true );
+		
+	}
+}

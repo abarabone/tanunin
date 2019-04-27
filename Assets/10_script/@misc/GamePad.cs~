@@ -1,0 +1,475 @@
+using UnityEngine;
+using System.Collections;
+using System.Collections.Generic;
+
+
+
+
+
+public class GamePad : MonoBehaviour
+{
+	
+	static InputUnit[]	inps;
+	
+	static Vector2	leftStick;
+	static Vector2	rightStick;
+	
+	static bool[]	pushes;
+	static bool[]	ups;
+	static bool[]	downs;
+	
+	
+	public static bool	wasKeyChanged;
+	
+	public static bool	requestMenuOpen;
+	
+	
+	GamePadConfig	configer;
+	
+		
+	
+	public enum enButton
+	{
+		none = -1,
+		
+		keyup,
+		keydown,
+		keyleft,
+		keyright,
+		
+		sankaku,
+		batsu,
+		shikaku,
+		maru,
+		
+		select,
+		start,
+		
+		l1,
+		l2,
+		l3,
+		
+		r1,
+		r2,
+		r3,
+		
+		length
+	}
+	
+	
+	void Awake()
+	{
+		
+		if( PlayerPrefs.HasKey("key0") )
+		{
+			load();
+		}
+		else
+		{
+			init();
+		}
+		
+		
+		configer = transform.Find( "UIcameraPers/config gamepad" ).GetComponent<GamePadConfig>();
+		
+		configer.init( this, inps );
+		
+	}
+	
+	void OnDisable()
+	{
+		for( var i=(int)enButton.length; i-->0; )
+		{
+			pushes[ i ]	= false;
+			ups[ i ]	= false;
+			downs[ i ]	= false;
+		}
+	}
+	
+	void OnDestroy()
+	{
+		if( wasKeyChanged )
+		{
+			save();
+		}
+	}
+	
+	void Update()
+	{
+		pollAll();
+		
+		requestMenuOpen = _start;
+	}
+	
+	
+	void init()
+	{
+		
+		if( inps == null )
+		{
+			inps = new InputUnit[ 2 + 4 + 16 + 2 + 4 + 16 ];
+			
+			pushes	= new bool[ 16 + 16 ];
+			ups		= new bool[ 16 + 16 ];
+			downs	= new bool[ 16 + 16 ];
+		}
+		
+		inps[ (int)enButton.keyup ]		= new InputUnit( "pv", InputUnit.enType.padStick, 1.0f );
+		inps[ (int)enButton.keydown ]	= new InputUnit( "pv", InputUnit.enType.padStick, -1.0f );
+		inps[ (int)enButton.keyleft ]	= new InputUnit( "ph", InputUnit.enType.padStick, 1.0f );
+		inps[ (int)enButton.keyright ]	= new InputUnit( "ph", InputUnit.enType.padStick, -1.0f );
+		inps[ (int)enButton.sankaku ]	= new InputUnit( "sankaku", InputUnit.enType.padButton );
+		inps[ (int)enButton.batsu ]		= new InputUnit( "batsu", InputUnit.enType.padButton );
+		inps[ (int)enButton.shikaku ]	= new InputUnit( "shikaku", InputUnit.enType.padButton );
+		inps[ (int)enButton.maru ]		= new InputUnit( "maru", InputUnit.enType.padButton );
+		inps[ (int)enButton.select ]	= new InputUnit( "select", InputUnit.enType.padButton );
+		inps[ (int)enButton.start ]		= new InputUnit( "start", InputUnit.enType.padButton );
+		inps[ (int)enButton.l1 ]		= new InputUnit( "l1", InputUnit.enType.padButton );
+		inps[ (int)enButton.l2 ]		= new InputUnit( "l2", InputUnit.enType.padButton );
+		inps[ (int)enButton.l3 ]		= new InputUnit( "l3", InputUnit.enType.padButton );
+		inps[ (int)enButton.r1 ]		= new InputUnit( "r1", InputUnit.enType.padButton );
+		inps[ (int)enButton.r2 ]		= new InputUnit( "r2", InputUnit.enType.padButton );
+		inps[ (int)enButton.r3 ]		= new InputUnit( "r3", InputUnit.enType.padButton );
+		
+		wasKeyChanged = false;
+	}
+	
+	void load()
+	{
+		
+		if( inps == null )
+		{
+			inps = new InputUnit[ 2 + 4 + 16 + 2 + 4 + 16 ];
+			
+			pushes	= new bool[ 16 + 16 ];
+			ups		= new bool[ 16 + 16 ];
+			downs	= new bool[ 16 + 16 ];
+		}
+		
+		for( var i=0; i<(int)enButton.length; i++ )
+		{
+			inps[ i ].load( i );
+		}
+		
+		wasKeyChanged = false;
+	}
+	
+	void save()
+	{
+		
+		for( var i=0; i<(int)enButton.length; i++ )
+		{
+			inps[ i ].save( i );
+		}
+		
+		wasKeyChanged = false;
+	}
+	
+	void pollAll()
+	{
+		for( var i=(int)enButton.length; i-->0; )
+		{
+			pushes[ i ]	= inps[ i ].getDigital();
+			ups[ i ]	= inps[ i ].getDigitalUp();
+			downs[ i ]	= inps[ i ].getDigitalDown();
+		}
+	}
+	
+	
+	
+/*	
+	static public Vector2 ls
+	{
+		get {}
+	}
+	
+	static public Vector2 rs
+	{
+		get {}
+	}
+*/	
+	static public bool up			{ get { return pushes[ (int)enButton.keyup ]; } }
+	static public bool up_			{ get { return ups[ (int)enButton.keyup ]; } }
+	static public bool _up			{ get { return downs[ (int)enButton.keyup ]; } }
+	
+	static public bool down			{ get { return pushes[ (int)enButton.keydown ]; } }
+	static public bool down_		{ get { return ups[ (int)enButton.keydown ]; } }
+	static public bool _down		{ get { return downs[ (int)enButton.keydown ]; } }
+	
+	static public bool left			{ get { return pushes[ (int)enButton.keyleft ]; } }
+	static public bool left_		{ get { return ups[ (int)enButton.keyleft ]; } }
+	static public bool _left		{ get { return downs[ (int)enButton.keyleft ]; } }
+	
+	static public bool right		{ get { return pushes[ (int)enButton.keyright ]; } }
+	static public bool right_		{ get { return ups[ (int)enButton.keyright ]; } }
+	static public bool _right		{ get { return downs[ (int)enButton.keyright ]; } }
+	
+	static public bool sankaku		{ get { return pushes[ (int)enButton.sankaku ]; } }
+	static public bool sankaku_		{ get { return ups[ (int)enButton.sankaku ]; } }
+	static public bool _sankaku		{ get { return downs[ (int)enButton.sankaku ]; } }
+	
+	static public bool batsu		{ get { return pushes[ (int)enButton.batsu ]; } }
+	static public bool batsu_		{ get { return ups[ (int)enButton.batsu ]; } }
+	static public bool _batsu		{ get { return downs[ (int)enButton.batsu ]; } }
+	
+	static public bool shikaku		{ get { return pushes[ (int)enButton.shikaku ]; } }
+	static public bool shikaku_		{ get { return ups[ (int)enButton.shikaku ]; } }
+	static public bool _shikaku		{ get { return downs[ (int)enButton.shikaku ]; } }
+	
+	static public bool maru			{ get { return pushes[ (int)enButton.maru ]; } }
+	static public bool maru_		{ get { return ups[ (int)enButton.maru ]; } }
+	static public bool _maru		{ get { return downs[ (int)enButton.maru ]; } }
+	
+	static public bool select		{ get { return pushes[ (int)enButton.select ]; } }
+	static public bool select_		{ get { return ups[ (int)enButton.select ]; } }
+	static public bool _select		{ get { return downs[ (int)enButton.select ]; } }
+	
+	static public bool start		{ get { return pushes[ (int)enButton.start ]; } }
+	static public bool start_		{ get { return ups[ (int)enButton.start ]; } }
+	static public bool _start		{ get { return downs[ (int)enButton.start ]; } }
+	
+	static public bool l1		{ get { return pushes[ (int)enButton.l1 ]; } }
+	static public bool l1_		{ get { return ups[ (int)enButton.l1 ]; } }
+	static public bool _l1		{ get { return downs[ (int)enButton.l1 ]; } }
+	
+	static public bool l2		{ get { return pushes[ (int)enButton.l2 ]; } }
+	static public bool l2_		{ get { return ups[ (int)enButton.l2 ]; } }
+	static public bool _l2		{ get { return downs[ (int)enButton.l2 ]; } }
+	
+	static public bool l3		{ get { return pushes[ (int)enButton.l3 ]; } }
+	static public bool l3_		{ get { return ups[ (int)enButton.l3 ]; } }
+	static public bool _l3		{ get { return downs[ (int)enButton.l3 ]; } }
+	
+	static public bool r1		{ get { return pushes[ (int)enButton.r1 ]; } }
+	static public bool r1_		{ get { return ups[ (int)enButton.r1 ]; } }
+	static public bool _r1		{ get { return downs[ (int)enButton.r1 ]; } }
+	
+	static public bool r2		{ get { return pushes[ (int)enButton.r2 ]; } }
+	static public bool r2_		{ get { return ups[ (int)enButton.r2 ]; } }
+	static public bool _r2		{ get { return downs[ (int)enButton.r2 ]; } }
+	
+	static public bool r3		{ get { return pushes[ (int)enButton.r3 ]; } }
+	static public bool r3_		{ get { return ups[ (int)enButton.r3 ]; } }
+	static public bool _r3		{ get { return downs[ (int)enButton.r3 ]; } }
+}
+
+
+
+public struct InputUnit
+{
+	
+	string	deviceName;
+	
+	enType	deviceType;	// 途中でデバイスタイプをチェンジすることは考慮していない
+	
+	float	sign;
+	
+	public enum enType
+	{
+		none,
+		padButton,
+		padStick,
+		mouseMove,
+		mouseButton,
+		mouseKey
+	}
+	
+	
+	bool	preres;
+	
+	
+	public InputUnit( string inputname, enType inputtype, float biassign = 1.0f )
+	{
+		deviceName = inputname;
+		
+		deviceType = inputtype;
+		
+		preres = false;
+		
+		sign = biassign;
+	}
+	
+	public void save( int id )
+	{
+		var data = deviceName + ":" + (int)deviceType + ":" + sign;
+		
+		PlayerPrefs.SetString( "key" + id, data );
+	}
+	
+	public void load( int id )
+	{
+		var keyname = "key" + id;
+				
+		if( PlayerPrefs.HasKey( keyname ) )
+		{	
+			var datas = PlayerPrefs.GetString( keyname ).Split( ':' );
+			
+			deviceName	= datas[0];
+			deviceType	= (enType)int.Parse( datas[1] );
+			sign		= float.Parse( datas[2] );
+		}
+	}
+	
+	
+	
+	public bool getDigital()
+	{
+		bool	res = false;
+		
+		switch( deviceType )
+		{
+			
+			case enType.padButton:
+			{
+				res = Input.GetButton( deviceName );
+			}
+			break;
+			
+			case enType.padStick:
+			{
+				res = Input.GetAxisRaw( deviceName ) * sign >= 0.8f;
+			}
+			break;
+			
+			default:break;
+		}
+		
+		return res;
+	}
+	
+	public bool getDigitalDown()
+	{
+		bool	res = false;
+		
+		switch( deviceType )
+		{
+			
+			case enType.padButton:
+			{
+				res = Input.GetButtonDown( deviceName );
+			}
+			break;
+			
+			case enType.padStick:
+			{
+				bool nowres = Input.GetAxisRaw( deviceName ) * sign >= 0.8f;
+				
+				res = ( nowres ^ preres ) & nowres;
+				
+				preres = nowres;
+			}
+			break;
+			
+			default:break;
+		}
+		
+		return res;
+	}
+	
+	public bool getDigitalUp()
+	{
+		bool	res = false;
+		
+		switch( deviceType )
+		{
+			
+			case enType.padButton:
+			{
+				res = Input.GetButtonUp( deviceName );
+			}
+			break;
+			
+			case enType.padStick:
+			{
+				bool nowres = Input.GetAxisRaw( deviceName ) * sign >= 0.8f;
+				
+				res = ( nowres ^ preres ) & !nowres;
+				
+				preres = nowres;
+			}
+			break;
+			
+			default:break;
+		}
+		
+		return res;
+	}
+	
+	public float getAnalog()
+	{
+		float	res = 0.0f;
+		
+		switch( deviceType )
+		{
+			
+			case enType.padStick:
+			{
+				res = Input.GetAxisRaw( deviceName );
+			}
+			break;
+			
+			default:break;
+		}
+		
+		return res;
+	}
+	
+	public float getAnalogPlus()
+	{
+		float	res = 0.0f;
+		
+		switch( deviceType )
+		{
+			
+			case enType.padButton:
+			{
+				res = Input.GetButton( deviceName )? 1.0f: 0.0f;
+			}
+			break;
+			
+			case enType.padStick:
+			{
+				res = Input.GetAxisRaw( deviceName );
+				
+				res = res > 0.0f? res: 0.0f;
+			}
+			break;
+			
+			default:break;
+		}
+		
+		return res;
+	}
+	
+	public float getAnalogMinus()
+	{
+		float	res = 0.0f;
+		
+		switch( deviceType )
+		{
+			
+			case enType.padButton:
+			{
+				res = Input.GetButton( deviceName )? -1.0f: 0.0f;
+			}
+			break;
+			
+			case enType.padStick:
+			{
+				res = Input.GetAxisRaw( deviceName );
+				
+				res = res < 0.0f? res: 0.0f;
+			}
+			break;
+			
+			default:break;
+		}
+		
+		return res;
+	}
+}
+
+
+
+
+

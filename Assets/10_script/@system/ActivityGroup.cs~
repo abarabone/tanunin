@@ -1,0 +1,277 @@
+using UnityEngine;
+using System.Collections;
+
+public class ActivityGroup : MonoBehaviour, IMissionEventable
+{
+	
+	public TeamLayer	team;//	{ set; get; }	// 自動プロパティにすると構造体一時コピーになるからだめらしい　なんだそれ
+	
+	public _ActionBase	leader		{ set; get; }
+	public bool			hasLeader	{ set; get; }// 暫定　コルーチンでのリーダー設定が遅れるので条件判定用
+	
+	public static ActivityGroup	freeGroup;//	{ get; private set; }
+	
+	
+	public Vector3	center;
+	
+	public float	territory;
+	
+	public float	arrowProtrusion;	// はみ出し可能距離
+	
+	public int		actType;
+	
+//	public int		maxMemberCount;
+	
+	
+	public Transform	tf	{ get; private set; }
+	
+	
+	public int	memberCount	{ get; private set; }
+	
+	public int	onceArrivaledMemberCount;//	{ get; private set; }
+	
+	
+	
+	public EventTargetLinkerHolder<ActivityGroup>	events;
+	
+	
+	
+	void Awake()
+	{
+		
+		tf = transform;
+		
+	}
+	
+	void Start()
+	{
+		init();
+	}
+	
+	void Update()
+	{
+		if( leader )// たぶん敵一体ずつでチェックするより低コストなはず
+		{
+			center = leader.rb.position;//.tf.position;
+		}
+	}
+	
+	
+	
+	public void init()
+	{
+		team.flag = 1 << (int)enTeamShift.enemy;//
+		
+		SystemManager.groups.increase();
+	}
+	
+	
+	public ActivityGroup createGroup( GroupInfo group, bool isLeader, MEventTargetLinker<ActivityGroup> eventLinker = null )
+	// プレハブから呼ばれる。自身を複製し、グループを作る。
+	{
+		
+		var go = (GameObject)Instantiate( this.gameObject, Vector3.zero, Quaternion.identity );
+		
+		var ag = go.GetComponent<ActivityGroup>();
+		
+		ag.center			= group.center;
+		ag.territory		= group.territory;
+		ag.arrowProtrusion	= group.arrowProtrusion;
+		ag.actType			= group.actType;
+		ag.tf				= ag.transform;
+		ag.hasLeader		= isLeader;//
+
+		ag.events.init( eventLinker, ag );
+		//Debug.Log(ag.GetInstanceID()+" 1 "+ag.onceArrivaledMemberCount +" "+ ag.leader +" "+ ag.hasLeader);
+		//Debug.Log(ag.GetInstanceID()+" 2 "+ag.onceArrivaledMemberCount +" "+ ag.leader +" "+ ag.hasLeader);
+
+		return ag;
+		
+	}
+	
+	
+	public delegate void SendProc( _EnemySoldierActionBase act );
+	
+	public void sendProcToAllMembers( SendProc proc )
+	// メンバーへのデリゲート配送システム
+	{
+		
+		for( var i=tf.childCount; i-->0; )
+		{
+			
+			var act = tf.GetChild(i).GetComponent<_EnemySoldierActionBase>();
+			
+			if( act ) proc( act );
+			
+		}
+		
+	}
+	
+	
+	public void enter()
+	{
+		memberCount++;//Debug.Log( GetInstanceID() +" "+ memberCount +" "+ leader );
+		
+		SystemManager.enemys.increase();
+		
+		if( memberCount > onceArrivaledMemberCount ) onceArrivaledMemberCount = memberCount;
+	}
+	
+	public void leave()
+	{
+
+		memberCount--;//Debug.Log( gameObject.GetInstanceID() +" "+ memberCount +" " );
+		
+		SystemManager.enemys.decrease();
+
+
+		hasLeader = leader != null;
+		
+		events.checkAll();
+
+
+		if( spawningLockCount <= 0 && this != freeGroup && memberCount <= 0 && !events.linker.isDependLocked() )
+		{
+
+			events.fin();
+
+			tf.DetachChildren();
+			
+			Destroy( gameObject );//Debug.Log( gameObject.GetInstanceID() + " gr 破棄" );
+			
+			SystemManager.groups.decrease();
+			
+		}
+
+	}
+	
+	
+	
+	public int	spawningLockCount;
+	
+/*	
+	void checkChildIsEmpty()
+	// 自身が空でないか、定期的にチェックする。
+	{
+		if( tf.childCount == 0 )
+		{
+			
+			Destroy( gameObject );
+			
+		}
+	}
+*/	
+	
+	
+	public IEnumerator spawnLoop( SpawnInfo spawn, MemberInfo member )
+	{
+		
+	//	Debug.Log( this.GetInstanceID()+" spawnLoop " + info.members + " "  +" "+ leader);
+		
+		if( spawn.lockable ) spawningLockCount++;
+		
+		
+		for( var i = 0; i < spawn.number; i++ )
+		{
+			if( SystemManager.missionCleared ) break;//
+			
+			
+			if( spawn.maxExists > memberCount )
+			{
+				if( i > 0 ) member.isLeader = false;
+				
+				spawnOne( member );
+			/*	var pos = isLeader? center: center + Random.insideUnitSphere * territory;
+				
+				pos.x = Mathf.Clamp( pos.x, -250.0f, 250.0f );
+				pos.z = Mathf.Clamp( pos.z, -250.0f, 250.0f );
+				
+				pos.y = 250.0f;
+				
+				var ray = new Ray( pos, Vector3.down );
+				
+				RaycastHit res;
+				
+				if( Physics.Raycast( ray, out res, float.PositiveInfinity, UserLayer.groundForEnemy ) )
+				{
+					
+					var rot = Quaternion.LookRotation( Random.insideUnitSphere, res.normal );
+					
+					var enemy = info.characterPrefab.create( res.point, rot, this, isLeader ) as _EnemyActionBase;
+					
+					if( enemy )
+					{
+						enemy.aggression = info.aggression;
+						enemy.domination = info.domination;
+						enemy.activeness = info.activeness;
+						
+						if( info.wakeUpInBattle ) enemy.gotoBattleMode();//Debug.Log( leader +" "+ isLeader +" "+ i +" "+ info.firstCharacterIsLeader +" "+ onceArrivaledMemberCount );
+					}
+					
+				}*/
+			}
+			
+			if( spawn.interval != 0.0f )
+			{
+				yield return new WaitForSeconds( spawn.interval );
+			}
+			else
+			{
+				yield return 0;
+			}
+			
+		}
+		
+		
+		if( spawn.lockable ) spawningLockCount--;
+		
+	}
+	
+	public void stopAllSpawn()
+	{
+		StopAllCoroutines();
+		
+		spawningLockCount = 0;
+	}
+	
+	
+	
+	
+	public void spawnOne( MemberInfo member, MEventTargetLinker<_ActionBase> linker = null )
+	{
+		var pos = member.isLeader? center: center + Random.insideUnitSphere * territory;
+		
+		pos.x = Mathf.Clamp( pos.x, -250.0f, 250.0f );
+		pos.z = Mathf.Clamp( pos.z, -250.0f, 250.0f );
+		
+		pos.y = 250.0f;
+		
+		var ray = new Ray( pos, Vector3.down );
+		
+		RaycastHit res;
+		
+		if( Physics.Raycast( ray, out res, float.PositiveInfinity, UserLayer.groundForEnemy ) )
+		{
+			
+			var rot = Quaternion.LookRotation( Random.insideUnitSphere, res.normal );
+			
+			var enemy = member.characterPrefab.create( res.point, rot, this, member.isLeader, linker ) as _EnemyActionBase;
+			
+			if( enemy )
+			{
+				enemy.aggression = member.aggression;
+				enemy.domination = member.domination;
+				enemy.activeness = member.activeness;
+				
+				if( member.wakeUpInBattle ) enemy.gotoBattleMode();
+			}
+			
+		}
+	}
+	
+	
+	
+}
+
+
+

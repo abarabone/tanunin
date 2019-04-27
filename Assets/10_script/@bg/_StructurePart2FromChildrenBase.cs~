@@ -1,0 +1,65 @@
+using UnityEngine;
+using System.Collections;
+
+public class _StructurePart2FromChildrenBase : MonoBehaviour
+{
+	
+	public virtual void build()
+	{
+		
+		var mfs = GetComponentsInChildren<MeshFilter>( true );
+		
+		
+		if( mfs.Length > 0)
+		{
+			
+			var mat = mfs[0].renderer.sharedMaterial;
+			
+			var mesh = combinedMesh( mfs );
+			
+			
+			var mf	= gameObject.AddComponent<MeshFilter>();
+			var mr	= gameObject.AddComponent<MeshRenderer>();
+			
+			
+			mf.sharedMesh		= mesh;
+			
+			mr.sharedMaterial	= mat;
+			
+		}
+
+
+		Destroy( this );
+
+	}
+
+
+	Mesh combinedMesh( MeshFilter[] mfs )
+	{
+
+		var counter	= new MeshElementsCounter( mfs );
+
+		
+		var creator	= new NormalMeshCreator();//SimpleMeshCreator();
+		
+		creator.alloc( ref counter );
+		
+		var mtParent	= transform.worldToLocalMatrix;
+		
+		foreach( var mf in mfs )
+		{
+			
+			var mt	= mtParent * mf.transform.localToWorldMatrix;
+			
+			creator.addGeometory( mf.sharedMesh, ref mt );
+			
+			Destroy( mf.gameObject );
+			
+		}
+
+		return creator.create();
+
+	}
+
+	
+}

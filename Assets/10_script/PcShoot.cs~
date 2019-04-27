@@ -1,0 +1,42 @@
+using UnityEngine;
+using System.Collections;
+
+
+
+
+
+public class PcShoot : MonoBehaviour
+{
+	
+	public WaponBase[]	wapons = new WaponBase[2];
+	
+	private int	nowWapon = 0;
+	
+	
+	
+	
+	
+	void Update()
+	{
+		
+		if( Input.GetButton("Fire") )
+		{
+			
+			wapons[nowWapon].mainFire();
+			
+		}
+		
+	}
+	
+	
+}
+
+
+
+
+
+
+
+
+
+

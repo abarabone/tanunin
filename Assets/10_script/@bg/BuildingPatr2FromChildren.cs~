@@ -1,0 +1,18 @@
+﻿using UnityEngine;
+using System.Collections;
+
+public class BuildingPart2FromChildren : _StructurePart2FromChildrenBase
+{
+
+
+	public override void build()
+	{
+
+		base.build();
+
+		gameObject.AddComponent<BuildingPart2>();
+
+	}
+
+
+}

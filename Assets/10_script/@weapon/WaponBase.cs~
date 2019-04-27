@@ -1,0 +1,69 @@
+using UnityEngine;
+using System.Collections;
+
+public abstract class WaponBase : MonoBehaviour
+{
+	
+//	public Transform	tf;
+	public Transform	tfCam;
+	public Transform	tfBody;
+	
+//	public GameObject	bullet;
+	public BulletBase	bullet;
+	
+	
+	public float	nextFireAbleTime	= 1.0f;
+	public int		maxBullets 			= 1;
+	public float	reloadTime			= 3.0f;
+	public float	emitAngle			= 0.0f;
+	public float	lowAccuracy			= 0.0f;
+	public float	range				= 1000.0f;
+	
+	protected float	nextFireTime;
+	
+	public float	reastReloadTime;
+	public int		reastBullets;
+	
+	public abstract void mainFire();
+	
+	public abstract void subFire();
+	
+	
+	void Start()
+	{
+		reastBullets = maxBullets;
+		reastReloadTime = 0.0f;
+	}
+	
+	
+	
+	protected void magazineCheckProcessing()
+	{
+		
+		if( --reastBullets == 0 )
+		{
+			reastReloadTime = reloadTime;
+		}
+		
+	}
+	
+	public bool checkReload()
+	{
+		if( reastReloadTime >= 0.0f )
+		{
+			reastReloadTime -= Time.deltaTime;
+			
+			return true;
+		}
+		else
+		{
+			if( reastBullets == 0 )
+			{
+				reastBullets = maxBullets;
+			}
+			
+			return false;
+		}
+	}
+	
+}

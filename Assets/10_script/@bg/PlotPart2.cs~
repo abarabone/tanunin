@@ -1,0 +1,34 @@
+using UnityEngine;
+using System.Collections;
+
+public class PlotPart2 : _StructurePartBase2
+{
+	
+
+	
+	public override void fallDown( StructureBreakController breaker, float pressure, Vector3 direction, Vector3 point )
+	{
+
+		tf.parent = null;
+
+		gameObject.SetActive( true );
+
+
+		var rb = rigidbody;
+
+		rb = rb? rb: gameObject.AddComponent<Rigidbody>();
+		
+		rb.detectCollisions = false;
+		
+		rb.AddForceAtPosition( pressure * 0.01f * direction, point, ForceMode.Impulse );
+
+
+		Destroy( gameObject, 2.0f );
+
+
+		base.fallDown( breaker, pressure, direction, point );
+
+	}
+
+	
+}

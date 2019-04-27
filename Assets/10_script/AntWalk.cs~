@@ -1,0 +1,311 @@
+using UnityEngine;
+using System.Collections;
+
+using ul = UserLayer;
+
+
+
+
+public class AntWalk : EnemyBase
+{
+	
+	public Transform	tf;
+	public Rigidbody	rb;
+	public Animator		anim;
+	public EnemyGroup	eg;
+	
+	
+	public float	sense		= 30.0f;
+	public float	dext		= 180.0f;
+	public float	quickness	= 1.0f;
+	public int		followness	= 1;
+	
+	float	speed;
+	Vector3	targetPoint;
+	
+	
+	void Start()
+	{
+		
+		eg = tf.parent.GetComponent<EnemyGroup>();
+		
+		physMove = notMove;
+		
+		anim.SetInteger( "state", 1 );
+		
+		StartCoroutine( searching() );
+		
+	}
+	
+	
+	
+	protected void scanSenser()
+	// プレイヤーが範囲内にいたら、ターゲットにして追ってくる。
+	// 範囲外なら、見失い、サーチモードへ。
+	{
+		
+		if( Physics.CheckSphere(tf.position, sense, ul.notPlayers) )
+		{
+			anim.SetInteger( "state", 0 );
+				
+			StartCoroutine( targetedWalking() );	
+			
+		}
+		else
+		{
+			anim.SetInteger( "state", 0 );
+				
+			StartCoroutine( searching() );	
+			
+		}
+		
+	}
+	
+	
+	
+	
+	
+	public IEnumerator targetedWalking()
+	{
+		yield return 0;
+		
+		speed = 1.0f * quickness;
+		anim.speed = speed;
+		
+		anim.SetFloat( "speed", speed );
+		
+		physMove = walkMove;
+		
+	}
+	
+	public IEnumerator searchWalking()
+	{
+		yield return 0;
+		
+		speed = 1.0f * quickness;
+		anim.speed = speed;
+		
+		anim.SetFloat( "speed", speed );
+		
+		physMove = walkMove;
+		
+		var limitTime = 20.0f;
+		
+		
+		for(;;)
+		{
+		/*	
+			var rotTo = Quaternion.FromToRotation( (targetPoint - tf.position), tf.forward );
+			var rotFrom = tf.rotation;
+			
+			var angle = rotTo.eulerAngles.y - rotFrom.eulerAngles.y;
+			
+			var maxAngle = dext * speed * Time.deltaTime;
+			
+			angle = Mathf.Clamp( angle, -maxAngle, maxAngle );
+			
+			var rot = Quaternion.identity;
+			
+			rot.eulerAngles = new Vector3( 0.0f, angle, 0.0f );
+			
+			tf.rotation *= rot;
+		*/	
+			
+			var fromPoint = tf.forward;
+			var toPoint = targetPoint - tf.position;
+			
+			var angle = Vector3.Angle( fromPoint, toPoint );
+			var axis = Vector3.Cross( fromPoint, toPoint );
+			
+			var maxAngle = dext * speed * Time.deltaTime;
+			angle = Mathf.Clamp( angle, 0.0f, maxAngle );
+			
+			var rot = Quaternion.AngleAxis( angle, axis );
+			
+			tf.rotation = rot * tf.rotation;
+			
+			
+			if( limitTime < 0.0f || Vector3.SqrMagnitude( targetPoint - tf.position ) < 1.0f )
+			{
+				
+				Destroy( targetObject );//
+				
+				anim.SetInteger( "state", 1 );
+				
+				StartCoroutine( searching() );
+				
+				
+				break;
+			}
+			
+			
+			limitTime -= Time.deltaTime;
+			
+			yield return 0;
+		}
+		
+		
+	}
+	
+	
+	public override IEnumerator sleeping()
+	{
+		yield return 0;
+		
+		speed = 0.1f * quickness;
+		anim.speed = speed;
+		
+		
+		physMove = notMove;
+		
+		
+		for(;;)
+		{
+			
+			yield return 0;
+		}
+		
+	}
+	
+	public override IEnumerator suspending()
+	{
+		yield return 0;
+		
+		speed = ( Random.value * 0.9f + 0.1f ) * quickness;
+		anim.speed = speed;
+		
+		
+		physMove = notMove;
+		
+		
+		for(;;)
+		{
+			
+			yield return 0;
+		}
+		
+	}
+	
+	public override IEnumerator staying()
+	{
+		yield return 0;
+		
+		speed = ( Random.value * 0.9f + 0.1f ) * quickness;
+		anim.speed = speed;
+		
+		
+		physMove = notMove;
+		
+		var limit = Random.value * 60.0f + 10.0f;
+		
+		
+		
+		for(;;)
+		{
+			
+			
+			
+			
+			limit -= Time.deltaTime;
+			
+			yield return 0;
+		}
+		
+		
+		
+		
+		
+	}
+	
+	
+	public GameObject	targetPrefab;
+	GameObject			targetObject;
+	
+	public IEnumerator searching()
+	{
+		yield return 0;
+		while( anim.GetNextAnimatorStateInfo(0).nameHash != 0 ) yield return 0;
+		
+		speed = ( Random.value * 0.7f + 0.3f ) * quickness;
+		anim.speed = speed;
+		
+		
+		physMove = notMove;
+		
+		var limit = Random.value * 6.0f;
+		
+		
+		
+		for(;;)
+		{
+			
+			if( limit < 0.0f || anim.GetNextAnimatorStateInfo(0).nameHash != 0 )
+			{
+				
+				var xy = Random.insideUnitCircle * ( Random.value * 50.0f );
+				var tv = new Vector3( xy.x, 0.0f, xy.y );
+				
+				targetPoint = tf.position + tv;
+				
+				var ppos = tf.parent.position;
+				var gptp = targetPoint - ppos;
+				gptp = Vector3.ClampMagnitude( gptp, eg.territory );
+				targetPoint = ppos + gptp;
+				
+				targetPoint = new Vector3( targetPoint.x, tf.position.y, targetPoint.z );// 仮
+				targetObject = Instantiate( targetPrefab, targetPoint, Random.rotation ) as GameObject;//
+				
+				anim.SetInteger( "state", 0 );
+				
+				StartCoroutine( searchWalking() );
+				
+				break;
+			}
+			
+			
+		//	limit -= Time.deltaTime;
+			
+			yield return 0;
+		}
+		
+		
+		
+	}
+	
+	
+	void notMove()
+	{
+	//	rb.MovePosition( rb.position );
+	}
+	
+	void walkMove()
+	{
+		
+		var moveRatio = 5.0f;
+		
+	//	var dir = ( targetPoint - rb.position ).normalized;
+		var dir = tf.forward;
+		
+		rb.MovePosition( rb.position + dir * moveRatio * speed * Time.deltaTime );
+		
+	}
+	
+	void targetMove()
+	{
+		
+	}
+	
+	
+	delegate void MoveFunc();
+	
+	MoveFunc	physMove;
+	
+	
+	void FixedUpdate()
+	{
+		
+		physMove();
+		
+	}
+	
+}

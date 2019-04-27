@@ -1,0 +1,39 @@
+using UnityEngine;
+using System.Collections;
+
+public class BuildingPart2 : _StructurePartBase2
+{
+
+	public override void fallDown( StructureBreakController breaker, float pressure, Vector3 direction, Vector3 point )
+	// 瓦解インスタンスを作成
+	{
+
+		var structure = breaker.structure;
+
+
+		var pos = structure.tf.TransformPoint( tf.position );
+		var rot = structure.tf.rotation * tf.rotation;
+		
+		var instance = (GameObject)Instantiate( gameObject, pos, rot );
+
+
+		instance.SetActive( true );
+
+		
+		var rb = instance.rigidbody;
+
+		if( !rb ) rb = instance.AddComponent<Rigidbody>();//
+
+		rb.detectCollisions = false;
+		
+		rb.AddForceAtPosition( pressure * 0.01f * direction, point, ForceMode.Impulse );
+		
+		
+		Destroy( instance, 2.0f );
+
+
+		base.fallDown( breaker, pressure, direction, point );
+
+	}
+
+}

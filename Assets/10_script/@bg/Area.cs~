@@ -1,0 +1,165 @@
+using UnityEngine;
+using System.Collections;
+
+public class Area : MonoBehaviour
+{
+	
+	
+	public int ownedPartsLength	{ get; set; }
+	
+	
+	public void build( Shader dstAreaBuildingShader )
+	{
+		
+		var buildings = this.GetComponentsInChildren<Building2>();
+
+
+		var sr	= gameObject.AddComponent<StructureBonedMeshRender>();
+		var mf	= gameObject.AddComponent<MeshFilter>();
+		var mr	= gameObject.AddComponent<MeshRenderer>();
+		
+
+		var dstmat	= createMaterial( dstAreaBuildingShader, buildings[0] );
+
+		var dstmesh	= combineMesh( buildings );
+
+		buildFarBuildings( buildings, sr, dstmesh );
+
+
+		mf.sharedMesh	= dstmesh;
+
+		mr.sharedMaterial	= dstmat;
+
+		sr.init( mf, mr, buildings );
+
+	}
+
+
+	Material createMaterial( Shader dstAreaBuildingShader, Building2 building )
+	{
+
+		var mat	= new Material( dstAreaBuildingShader );
+		
+		mat.mainTexture	= building.GetComponentInChildren<MeshRenderer>().sharedMaterial.mainTexture;
+
+		return mat;
+
+	}
+
+
+	Mesh combineMesh( Building2[] buildings )
+	{
+
+		var counter	= new MeshElementsCounter( buildings );
+
+
+		var tfArea	= this.transform;
+
+		var creator	= new StructreMeshCreator();
+		
+		creator.alloc( ref counter );
+		
+		for( var i = 0; i < buildings.Length; i++ )
+		{
+			
+			var tfBuilding = buildings[i].tf;
+
+
+			var mf = buildings[i].GetComponentInChildren<MeshFilter>();
+
+			var tfDetail = mf.transform;
+
+
+			var mtBuidingBase = tfBuilding.worldToLocalMatrix * tfDetail.localToWorldMatrix;
+
+			creator.addGeometory( mf.sharedMesh, i, ref mtBuidingBase );
+
+		}
+		
+		return creator.create();
+		
+	}
+
+	void buildFarBuildings( Building2[] buildings, StructureBonedMeshRender sbmr, Mesh dstMesh )
+	{
+
+		var tfArea	= this.transform;
+
+		var areaBounds = new Bounds( buildings[0].tf.localPosition, Vector3.zero );
+
+
+		for( var i = 0; i < buildings.Length; i++ )
+		{
+
+			var building = buildings[i];
+
+
+			var mf = building.GetComponentInChildren<MeshFilter>();
+			var mr = mf.GetComponent<MeshRenderer>();
+
+
+
+			var bounds = setBuildingEnvelope( building, mf.sharedMesh, mf.transform, tfArea );
+
+			areaBounds.Encapsulate( bounds );
+
+
+			building.attachFar( i, sbmr, mf.gameObject );
+
+
+			Destroy( mf );
+			Destroy( mr );
+
+		}
+
+
+		dstMesh.bounds = areaBounds;
+
+	}
+	
+	Bounds setBuildingEnvelope( Building2 building, Mesh srcmesh, Transform tfDetail, Transform tfArea )
+	{
+
+		var mtAreaBase	= tfArea.worldToLocalMatrix * tfDetail.localToWorldMatrix;
+
+		var vtxs = srcmesh.vertices;
+
+
+		var center = srcmesh.bounds.center;
+
+		var scale = tfDetail.lossyScale;//new Vector3( m.m00, m.m11, m.m22 );
+
+
+		var sqradius = 0.0f;
+
+		var bounds = new Bounds( building.tf.localPosition, Vector3.zero );
+
+
+		for( var iv = 0; iv < srcmesh.vertexCount; iv++ )
+		{
+
+			var vtx = mtAreaBase.MultiplyPoint3x4( vtxs[iv] );
+
+			bounds.Encapsulate( vtx );
+
+
+			var sqdist = ( Vector3.Scale(vtxs[iv],scale) - center ).sqrMagnitude;
+			
+			if( sqdist > sqradius ) sqradius = sqdist;
+
+		}
+
+
+		var offset = tfDetail.localPosition + tfDetail.localRotation * center;
+		
+		var size = Mathf.Sqrt( sqradius ) * 2.0f;// 多分直径に直して new Bounds() に渡すから２倍でいいんだと思う…
+
+		building.setBoundingValues( offset, size );
+
+
+		return bounds;
+
+	}
+
+
+}

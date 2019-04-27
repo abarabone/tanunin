@@ -1,0 +1,261 @@
+using UnityEngine;
+using System.Collections;
+using System.Collections.Generic;
+
+
+
+
+
+public class GamePad : _Inputs
+{
+	
+	Vector2	leftStick;
+	Vector2	rightStick;
+	
+	int	buttons;
+	
+	enum enButton
+	{
+		keyup,
+		keydown,
+		keyleft,
+		keyright,
+		sankaku,
+		batsu,
+		shikaku,
+		maru,
+		menu,
+		start,
+		l1,
+		l2,
+		l3,
+		r1,
+		r2,
+		r3,
+	}
+	
+	
+	public void pollAll()
+	{
+		
+		
+		
+	}
+	
+	public Vector2 ls
+	{
+		get {}
+	}
+	
+	public Vector2 rs
+	{
+		get {}
+	}
+	
+	public bool maru
+	{
+		get {}
+	}
+}
+
+
+
+
+
+public class _Inputs : MonoBehaviour
+{
+	
+//	protected Dictionary< string, InputActionUnit >	actions;
+	protected InputActionUnit[]	actions;
+	
+	
+	
+	
+}
+
+
+struct InputUnit
+{
+	
+	string	name;
+	
+	enType	type;
+	
+	enum enType
+	{
+		padButton,
+		padStick,
+		mouseMove,
+		mouseButton,
+		mouseKey
+	}
+	
+	
+	bool	preres;
+	
+	
+	
+	public bool getDigital()
+	{
+		bool	res = false;
+		
+		switch( type )
+		{
+			
+			case enType.padButton:
+			{
+				res = Input.GetButton( name );
+			}
+			break;
+			
+			case enType.padStick:
+			{
+				res = Input.GetAxisRaw( name ) >= 0.8f;
+			}
+			break;
+			
+			default:break;
+		}
+		
+		return res;
+	}
+	
+	public bool getDigitalDown()
+	{
+		bool	res = false;
+		
+		switch( type )
+		{
+			
+			case enType.padButton:
+			{
+				res = Input.GetButtonDown( name );
+			}
+			break;
+			
+			case enType.padStick:
+			{
+				bool nowres = Input.GetAxisRaw( name ) >= 0.8f;
+				
+				res = nowres ^ preres;
+				
+				preres = res;
+			}
+			break;
+			
+			default:break;
+		}
+		
+		return res;
+	}
+	
+	public bool getDigitalUp()
+	{
+		bool	res = false;
+		
+		switch( type )
+		{
+			
+			case enType.padButton:
+			{
+				res = Input.GetButtonUp( name );
+			}
+			break;
+			
+			case enType.padStick:
+			{
+				bool nowres = Input.GetAxisRaw( name ) < 0.8f;
+				
+				res = nowres ^ preres;
+				
+				preres = res;
+			}
+			break;
+			
+			default:break;
+		}
+		
+		return res;
+	}
+	
+	public float getAnalog()
+	{
+		float	res = 0.0f;
+		
+		switch( type )
+		{
+			
+			case enType.padStick:
+			{
+				res = Input.GetAxisRaw( name );
+			}
+			break;
+			
+			default:break;
+		}
+		
+		return res;
+	}
+	
+	public float getAnalogPlus()
+	{
+		float	res = 0.0f;
+		
+		switch( type )
+		{
+			
+			case enType.padButton:
+			{
+				res = Input.GetButton( name )? 1.0f: 0.0f;
+			}
+			break;
+			
+			case enType.padStick:
+			{
+				res = Input.GetAxisRaw( name );
+				
+				res = res > 0.0f? res: 0.0f;
+			}
+			break;
+			
+			default:break;
+		}
+		
+		return res;
+	}
+	
+	public float getAnalogMinus()
+	{
+		float	res = 0.0f;
+		
+		switch( type )
+		{
+			
+			case enType.padButton:
+			{
+				res = Input.GetButton( name )? -1.0f: 0.0f;
+			}
+			break;
+			
+			case enType.padStick:
+			{
+				res = Input.GetAxisRaw( name );
+				
+				res = res < 0.0f? res: 0.0f;
+			}
+			break;
+			
+			default:break;
+		}
+		
+		return res;
+	}
+}
+
+
+
+
+
+
+
+

@@ -1,0 +1,87 @@
+using UnityEngine;
+using System.Collections;
+
+public class SniperRifle : _WaponBase
+{
+	
+	public float	scopeZoomRatio;
+	
+	
+	float	normalFov;
+	
+	
+	public override void mainFire( _ActionBase act )
+	{
+		readyAtPushTrigger();
+		
+		if( nextFireTime <= Time.time && reastBullets > 0 )
+		{
+			
+			sound.PlayDelayed( 0.0f );
+			
+			
+			var laAngle = Random.insideUnitCircle * lowAccuracy;
+			
+			var pos = tfMuzzle.position;
+			var rot = tfMuzzle.rotation * Quaternion.Euler( -emitAngle + laAngle.x, laAngle.y, 0.0f );
+			
+			
+			bullet.emitBullet( pos, rot, range, act );
+			
+			
+			nextFireTime = Time.time + nextFireAbleTime;
+			
+			checkMagazine();
+		}
+		
+	}
+	
+	
+	public override void subFire( PcAction act )
+	{
+		if( GamePad._l2 )//Input.GetButtonDown(GamePad.l2) )
+		{
+			var cam = Camera.main;
+			
+			if( normalFov == 0.0f )
+			{
+				
+				normalFov = cam.fov;
+				
+				cam.fov = normalFov / scopeZoomRatio;
+				
+				act.looker.fpsMode = true;
+				
+			}
+			else
+			{
+				
+				cam.fov = normalFov;
+				
+				normalFov = 0.0f;
+				
+				act.looker.fpsMode = false;
+				
+			}
+			
+			act.shooter.sound.PlayOneShot( act.shooter.zoomSound );
+		}
+	}
+	
+	public override void subFireOff( PcAction act )
+	{
+		
+		if( normalFov != 0.0f )
+		{
+			
+			Camera.main.fov = normalFov;
+			
+			normalFov = 0.0f;
+			
+			act.looker.fpsMode = false;
+			
+		}
+		
+	}
+	
+}

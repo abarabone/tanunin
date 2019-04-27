@@ -1,0 +1,287 @@
+using UnityEngine;
+using System.Collections;
+
+public class StructureBonedMeshRender : MonoBehaviour
+{
+	
+	public MeshRenderer	mr;
+	
+	MeshFilter	mf;
+	
+	StructureBone[]	bones;// 使ってない
+	
+	public BitFloatArray	visibles	{ get; private set; }// 使ってない
+	
+	
+	
+	public bool scheduleedRecalculateBounds;
+	// バウンディングの再計算をうながしているかどうか。何十秒かの猶予を持たせる。
+
+
+	public void init( MeshFilter inmf, MeshRenderer inmr, Building2[] buildings )
+	{
+
+		mf	= inmf;
+
+		mr	= inmr;
+
+
+		visibles = new BitFloatArray();
+		
+		visibles.init( buildings.Length, true );
+
+
+		foreach( var building in buildings )
+		{
+			setBoneProperty( building.partId, building.tf.position, building.tf.rotation, 1.0f );
+		}
+
+	}
+
+
+	public void initProperties( StructureBone[] bns, BitFloatArray vis )
+	// 旧 building 用
+	{
+		
+		visibles = vis;
+		
+		
+		bones = bns;
+		
+		for( var i=bns.Length; i-->0; )
+		{
+			var pos = bns[i].tf.position;
+			
+			mr.sharedMaterial.SetVector( "t" + i, new Vector4( pos.x, pos.y, pos.z, 1.0f ) );
+			
+			
+			var rot = bns[i].tf.rotation;
+			
+			mr.sharedMaterial.SetVector( "r" + i, new Vector4( rot.x, rot.y, rot.z, rot.w ) );
+		}
+		
+		mf = GetComponent<MeshFilter>();
+		
+	}
+
+
+/*	
+	void setBoneProperty( int partId )
+	{
+		
+		mr.material.SetVector( "t" + partId, bones[partId].tf.position );
+		
+		
+		var rot = bones[partId].tf.rotation;
+		
+		mr.material.SetVector( "r" + partId, new Vector4( rot.x, rot.y, rot.z, rot.w ) );
+		
+	}
+*/	
+	public void setBoneProperty( int partId, Vector3 pos, Quaternion rot, float visible )
+	{
+		
+		mr.sharedMaterial.SetVector( "t" + partId, new Vector4( pos.x, pos.y, pos.z, visible ) );
+		
+		mr.sharedMaterial.SetVector( "r" + partId, new Vector4( rot.x, rot.y, rot.z, rot.w ) );
+		
+	}
+	
+	public void encapsulateBounds( Transform ptf, Vector3 offset, float size )
+	{
+	//	Debug.Log("バウンディング拡張");
+		var pos = ptf.localPosition + ptf.localRotation * offset;
+		
+		var newBounds = mf.mesh.bounds;
+
+		newBounds.Encapsulate( new Bounds( pos, new Vector3(size, size, size) ) );
+		
+		mf.mesh.bounds = newBounds;
+	}
+	
+	public void requestRecalculateAllBounds( float delayTime )
+	{
+	//	Debug.Log("再計算を促す");
+		if( !scheduleedRecalculateBounds )
+		{
+			scheduleedRecalculateBounds = true;
+			
+			StartCoroutine( recalculateAllBounds( delayTime ) );
+		}
+	}
+	
+	IEnumerator recalculateAllBounds( float delayTime )
+	{
+	//	Debug.Log("再計算受理");
+		yield return new WaitForSeconds( delayTime );
+		
+		
+	//	Debug.Log("再計算開始");
+		var ss = GetComponentsInChildren<Building2>();
+		
+		
+		if( ss.Length > 0 )
+		{
+			
+			var pos = ss[0].tf.localPosition + ss[0].tf.localRotation * ss[0].offset;
+			
+			var newBounds = new Bounds( pos, new Vector3( ss[0].size, ss[0].size, ss[0].size ) );
+			
+			
+			for( var i = 1; i < ss.Length; i++ )
+			{
+				
+				pos = ss[i].tf.localPosition + ss[i].tf.localRotation * ss[i].offset;
+
+				var iBounds = new Bounds( pos, new Vector3( ss[i].size, ss[i].size, ss[i].size ) );
+
+				newBounds.Encapsulate( iBounds );
+				
+			}
+					
+			mf.mesh.bounds = newBounds;
+			
+		}
+		else
+		{
+			
+		//	Debug.Log("エリア破棄");
+			Destroy( gameObject );	// area 消滅
+			
+		}
+		
+		
+	//	Debug.Log("再計算終了");
+		scheduleedRecalculateBounds = false;
+	}
+	
+	
+	
+/*
+	void Update()
+	// バウンディング拡張確認用
+	{
+		drawBounds( mf.mesh.bounds, Color.green );
+		
+		var ss = GetComponentsInChildren<Building2>();
+		
+		if( ss.Length > 0 )
+		{
+			var pos = ss[0].tf.localPosition + ss[0].tf.localRotation * ss[0].offset;//Debug.Log(ss[0].tf.localPosition);
+			
+			var newBounds = new Bounds( pos, Vector3.one * ss[0].size );
+			drawBounds( newBounds, Color.blue );
+			
+			for( var i = 1; i < ss.Length; i++ )
+			{
+				pos = ss[i].tf.localPosition + ss[i].tf.localRotation * ss[i].offset;
+				
+				var thisBounds = new Bounds( pos, Vector3.one * ss[i].size );
+				drawBounds( thisBounds, Color.blue );
+				
+				newBounds.Encapsulate( thisBounds );
+			}
+			
+			drawBounds( newBounds, Color.red );
+		}
+	}
+*/
+	
+	
+	
+	
+	
+	void drawBounds( Bounds bounds, Color c )
+	{
+		
+		var u = bounds.max.y;
+		var d = bounds.min.y;
+		var r = bounds.max.x;
+		var l = bounds.min.x;
+		var f = bounds.max.z;
+		var b = bounds.min.z;
+		
+		var tf = transform;
+		
+		var ulf = tf.localToWorldMatrix.MultiplyPoint3x4( new Vector3( l, u, f ) );
+		var urf = tf.localToWorldMatrix.MultiplyPoint3x4( new Vector3( r, u, f ) );
+		var ulb = tf.localToWorldMatrix.MultiplyPoint3x4( new Vector3( l, u, b ) );
+		var urb = tf.localToWorldMatrix.MultiplyPoint3x4( new Vector3( r, u, b ) );
+		
+		var dlf = tf.localToWorldMatrix.MultiplyPoint3x4( new Vector3( l, d, f ) );
+		var drf = tf.localToWorldMatrix.MultiplyPoint3x4( new Vector3( r, d, f ) );
+		var dlb = tf.localToWorldMatrix.MultiplyPoint3x4( new Vector3( l, d, b ) );
+		var drb = tf.localToWorldMatrix.MultiplyPoint3x4( new Vector3( r, d, b ) );
+		
+		Debug.DrawLine( ulb, ulf, c );
+		Debug.DrawLine( ulf, urf, c );
+		Debug.DrawLine( urf, urb, c );
+		Debug.DrawLine( urb, ulb, c );
+		
+		Debug.DrawLine( dlb, dlf, c );
+		Debug.DrawLine( dlf, drf, c );
+		Debug.DrawLine( drf, drb, c );
+		Debug.DrawLine( drb, dlb, c );
+		
+		Debug.DrawLine( ulb, dlb, c );
+		Debug.DrawLine( ulf, dlf, c );
+		Debug.DrawLine( urf, drf, c );
+		Debug.DrawLine( urb, drb, c );
+		
+	}
+/*	
+	IEnumerator Start()
+	{
+		
+		do
+		{
+			drawBounds( GetComponent<MeshFilter>().mesh.bounds, Color.green );
+			
+			var pos = bones[0].tf.localPosition + bones[0].tf.localRotation * bones[0].offset;
+			
+			var bounds = new Bounds( pos, Vector3.one * bones[0].size );
+			drawBounds( bounds, Color.blue );
+			
+			for( var i=bones.Length-1; i-->0; )
+			{
+				
+				var ipos = bones[i].tf.localPosition + bones[i].tf.localRotation * bones[i].offset;
+				
+				var ibounds = new Bounds( ipos, Vector3.one * bones[i].size );
+				drawBounds( ibounds, Color.blue );
+				bounds.Encapsulate( ibounds );
+			}
+			
+			drawBounds( bounds, Color.red );
+			mf.mesh.bounds = bounds;
+			
+			yield return 0;
+		}
+		while( true );
+		
+	}
+*/	
+/*
+	IEnumerator OnBecameVisible()
+	{
+		
+		do
+		{Debug.Log("v");
+			
+			for( var i=bones.Length; i-->0; )
+			{
+			//	if( !bones[i].rb.IsSleeping() )
+			//	{
+		//			setBoneProperty( i );
+			//	}
+				
+			}
+			
+			yield return 0;
+		}
+		while( mr.isVisible );
+		
+	}
+*/	
+	
+}

@@ -1,0 +1,38 @@
+using UnityEngine;
+using System.Collections;
+
+using ul = UserLayer;
+
+
+
+public class Landing00 : LandingEffectBase
+{
+
+	
+	public float	noiseVolume;
+	
+	
+	public override void emitExplode( Vector3 pos, Quaternion rot )
+	// プレハブから使用し、インスタンスを生成する。
+	{
+		
+		var go = Instantiate( gameObject, pos, rot ) as GameObject;
+		var ps = eo.particleSystem;
+		
+		Destroy( go, ps.duration );
+		
+		ps.startSize = radius * 1.5f;
+		ps.startSpeed = radius * 1.5f;
+		
+		
+	}
+	
+	/*
+	void OnEnterCollision( Collision other )
+	{
+		
+		other.rigidbody.AddForce( other.contacts[0].normal * -1.0f, ForceMode.VelocityChange );
+		
+	}
+	*/
+}

@@ -1,0 +1,196 @@
+using UnityEngine;
+using System.Collections;
+
+
+
+
+public abstract class _ActionBase : MonoBehaviour, IMissionEventable
+{
+	
+	public TeamLayer	team;
+	
+	public Transform	tf		{ get; protected set; }
+	public Rigidbody	rb		{ get; protected set; }
+	public Animator		anim	{ get; protected set; }
+	public Transform	tfBody	{ get; protected set; }
+	
+	public _ChHitProcessBase	hp		{ get; protected set; }
+	
+	public Transform	tfObservedCenter;	// 観測される中心点（主に視認に使用される点）
+	
+	public float	loudness	{ get; protected set; }	// 発している音の大きさ
+	public float	heatness	{ get; protected set; }	// 発している熱の大きさ
+	public float	factQ		{ get; protected set; }	// 発しているＱ要素の大きさ
+	
+	
+	public AudioClip	deathBoice;
+	
+	public AudioSource	sound	{ get; private set; }
+	
+	
+	
+	public EventTargetLinkerHolder<_ActionBase>	events;
+
+	
+
+	public delegate void GotoModeProc();//
+	
+//	public GotoModeProc	baseMode;//
+	
+	
+	protected delegate void MoveProc();
+	
+	protected MoveProc	physMove;
+	
+	
+	protected ActivityGroup	joinedGroup;
+	
+	
+	public abstract void init();
+	public abstract void fin();
+	
+	
+	protected void Awake()
+	// インスタンス最初に一回の処理を実行
+	{
+		
+		setBaseReferences();
+		
+	}
+/*	
+	protected void Start()
+	// 再利用時に初期化するべき処理を最初の一回だけ自動で実行（マップにはじめから置くタイプを考慮）
+	{
+		
+		init();
+		
+	}
+*/	
+	
+	public _ActionBase create( Vector3 pos, Quaternion rot, ActivityGroup group, bool isLeader, MEventTargetLinker<_ActionBase> eventLinker = null )
+	// プレハブから使う
+	{
+		
+		var go = SystemManager.characterHolder.spawn( this, pos, rot );
+		
+		var act = go.GetComponent<_ActionBase>();
+		
+		act.enterGroup( group, isLeader );
+		
+		act.init();//
+		
+		act.events.init( eventLinker, act );
+		
+		return act;
+		
+	}
+	
+	public void destruct()
+	{
+
+		events.fin();
+
+		fin();
+		
+		leaveGroup();
+		
+	}
+	
+	
+	protected virtual void setBaseReferences()
+	{
+		
+		tf = transform;
+		rb = rigidbody;
+		
+		anim	= GetComponentInChildren<Animator>();
+		
+		sound	= audio;
+		
+		hp		= GetComponent<_ChHitProcessBase>();
+		
+		
+		if( anim )
+		{
+			tfBody	= anim.transform;
+		}
+		else
+		{
+			tfBody	= GetComponentInChildren<MeshRenderer>().transform;
+		}
+		
+		physMove = physicalMove;
+		
+	}
+	
+	
+	
+	protected virtual void enterGroup( ActivityGroup group, bool isLeader = false )
+	{
+		
+		if( joinedGroup ) leaveGroup();
+		
+		joinedGroup = group;
+		
+		joinedGroup.enter();
+		
+		if( isLeader ) assumeLeader();
+		
+		tf.parent = group.tf;//
+		
+	}
+	protected virtual void leaveGroup()
+	// 破壊後にも呼ぶが、その前に呼んでも問題ない
+	{
+		if( joinedGroup )
+		{
+			if( joinedGroup.leader == this ) resignLeader();
+			
+			tf.parent = null;//
+			
+			joinedGroup.leave();
+		}
+		
+		joinedGroup = null;	// 参照外しも兼ねる
+		
+	}
+	
+	public void assumeLeader()
+	{
+		if( joinedGroup )
+		{
+			joinedGroup.leader = this;
+		}
+	}
+	public void resignLeader()
+	{
+		if( joinedGroup )
+		{
+			joinedGroup.leader = null;
+		}
+	}
+	
+	
+		
+	protected void FixedUpdate()
+	{
+		
+		physMove();
+		
+	}
+	
+	
+	
+	protected void noUpdate()
+	{
+		
+	}
+	
+	protected void physicalMove()
+	// 物理法則のみでの移動
+	{
+		
+	}
+	
+	
+}

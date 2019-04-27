@@ -1,0 +1,183 @@
+﻿using UnityEngine;
+using System.Collections;
+using System.Collections.Generic;
+
+
+
+public class StructureTemplateUnit
+{
+
+	public GameObject				instance;
+
+	public _StructurePartBase2[]	parts;
+
+	public Mesh						nearMesh;
+	
+	public byte[]					triIndexToPartIdList;
+	
+	public GameObject				nearObject;
+
+}
+
+
+// *****************************************************************
+
+public class StructureTemplateHolder2 : _ObjectTemplateHolder
+// 構造物のメッシュコンバイン済み雛形インスタンスを管理する。
+{
+	
+	Dictionary< GameObject, StructureTemplateUnit >	templates;
+	
+	
+	public Shader	srcShader;
+	
+	public Shader	dstNearShader;
+
+
+	
+	public override void init()
+	{
+		clear();
+		
+		templates = new Dictionary< GameObject, StructureTemplateUnit >( 64 );
+	}
+	
+	
+	public override void clear()
+	{
+		
+		if( templates != null )
+		{
+			foreach( var t in templates.Values )
+			{
+
+				GameObject.Destroy( t.instance );
+				GameObject.Destroy( t.nearObject );
+
+				t.nearMesh.Clear();
+
+			}
+
+			templates.Clear();
+			
+			templates = null;
+		}
+		
+	}
+
+
+	public override void registFrom( _StructureReplicaBase2[] structres )
+	{
+
+		foreach( var s in structres )
+		{
+			if( !templates.ContainsKey( s.prefab ) )
+			{
+				registTemplateInstance( s.prefab );
+			}
+		}
+
+	}
+
+
+	public override void build()
+	{
+
+		packTextures();
+
+		buildTemplateInstances();
+
+	}
+
+
+	public override void attachTo( _StructureReplicaBase2[] structres )
+	{
+
+		foreach( var s in structres )
+		{
+			if( templates.ContainsKey( s.prefab ) )
+			{
+				attachTemplateInstanceTo( s );
+			}
+		}
+
+	}
+
+
+// --------------------------------------------------------------------	
+	
+	
+	void registTemplateInstance( GameObject prefab )
+	// リソースから近距離オブジェクトをインスタンス化して、ホルダーに加える。
+	{
+		
+		var templateInstance = (GameObject)Instantiate( prefab );
+		
+		templateInstance.SetActive( false );
+		
+		
+		//	Resources.UnloadAsset( prefab );
+		
+		
+		var	template	= new StructureTemplateUnit();
+		
+		template.instance	= templateInstance;
+		
+		
+		templates[ prefab ] = template;
+		
+		templateInstance.transform.parent = transform;
+		
+	}
+
+	
+	void packTextures()
+	{
+		
+		var texpacker = new TexturePacker( srcShader );
+		
+		foreach( var t in templates.Values )
+		{
+			texpacker.regist( t.instance );
+		}
+		
+		texpacker.pack();
+		
+	}
+	
+	void buildTemplateInstances()
+	// ホルダー傘下のインスタンステンプレートを加工する。
+	{
+
+		foreach( var template in templates.Values )
+		{
+
+			var builder = new NearStructureBuilder();
+
+			template.parts		= builder.initParts( template.instance );
+			
+			template.nearMesh	= builder.combineMesh( template.instance, template.parts );
+
+			template.triIndexToPartIdList	= builder.buildTriangleIndexToPartIdList( template.nearMesh, template.parts );
+			
+			template.nearObject	= builder.createNearObject( transform, template.nearMesh, template.parts, dstNearShader );
+
+		}
+		
+	}
+
+	
+	void attachTemplateInstanceTo( _StructureReplicaBase2 structure )
+	// 遠距離用のみの構造物に、近距離用オブジェクトを追加する。
+	{
+
+		var template = templates[ structure.prefab ];
+
+		structure.attatchNear( ref template );
+		
+	}
+	
+	
+
+}
+

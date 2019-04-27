@@ -1,0 +1,115 @@
+using UnityEngine;
+using System.Collections;
+
+public class PlotPart2UtlPole : PlotPart2
+{
+
+	public CablesetLinkHolder	cablesetLink;	// 自分につながるケーブルセットのチェイン
+
+	public CutcableLinkHolder	cutcableLink;	// 自分につながる断線ケーブルのチェイン
+
+	
+
+	public override void fallDown( StructureBreakController breaker, float pressure, Vector3 direction, Vector3 point )
+	{
+
+		cablesetLink.cutAllLinkedCablesets( breaker, this );
+
+		cutcableLink.reparentAllCutcables( this );
+		
+		emitSpark();
+
+		base.fallDown( breaker, pressure, direction, point );
+
+	}
+
+	void emitSpark()
+	{
+
+
+
+	}
+
+	
+}
+
+
+public struct CablesetLinkHolder
+{
+
+	CablesetLinkUnit	startSideCablesetLink;
+	CablesetLinkUnit	endSideCablesetLink;
+
+
+	public class CablesetLinkUnit
+	{
+		
+		public PlotPart2Cableset	cableset;
+		
+		public CablesetLinkUnit	next;
+		
+	}
+
+	
+	public void addStartSide( PlotPart2Cableset newCableset )
+	{
+		var link = new CablesetLinkUnit();
+
+		link.cableset	= newCableset;
+		link.next		= startSideCablesetLink;
+
+		startSideCablesetLink	= link;
+	}
+
+	public void addEndSide( PlotPart2Cableset newCableset )
+	{
+		var link = new CablesetLinkUnit();
+		
+		link.cableset	= newCableset;
+		link.next		= endSideCablesetLink;
+		
+		endSideCablesetLink	= link;
+	}
+
+
+	public void cutAllLinkedCablesets( StructureBreakController breaker, PlotPart2UtlPole pole )
+	{
+		
+		for( var link = startSideCablesetLink; link != null; link = link.next )
+		{
+			if( link.cableset != null ) link.cableset.cut( pole.tf, breaker );
+		}
+
+		for( var link = endSideCablesetLink; link != null; link = link.next )
+		{
+			if( link.cableset != null ) link.cableset.cut( pole.tf, breaker );
+		}
+		
+	}
+
+}
+
+public struct CutcableLinkHolder
+{
+	
+	CutCable	cutcableLink;
+
+
+	public void addCutCable( CutCable newCutcable )
+	{
+		newCutcable.cutcableLink	= this.cutcableLink;
+
+		this.cutcableLink			= newCutcable;
+	}
+
+
+	public void reparentAllCutcables( PlotPart2UtlPole pole )
+	{
+		for( var cutcable = cutcableLink; cutcable != null; cutcable = cutcable.cutcableLink )
+		{
+			cutcable.transform.parent = pole.tf;
+		}
+	}
+
+}
+

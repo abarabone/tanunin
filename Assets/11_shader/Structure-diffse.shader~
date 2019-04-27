@@ -1,0 +1,74 @@
+
+
+Shader "Custom/Structure-Diffuse"
+{
+	
+	Properties
+	{
+		_MainTex ("Base (RGB)", 2D) = "white" {}
+	}
+	
+	SubShader
+	{
+		Tags { "RenderType"="Opaque" }
+		
+		LOD 200
+		
+		   
+		CGPROGRAM
+			#pragma only_renderers d3d9 opengl gles
+			#pragma glsl
+			#pragma surface surf Lambert vertex:vert
+		//	#pragma vertex:vert
+			
+			struct vtxpos
+			{
+				half4	vertex : POSITION;
+				half3	normal : NORMAL;
+			    half2	texcoord : TEXCOORD0;
+			    half4	color : COLOR;
+			};
+			
+			struct v2f
+			{
+			    half4	pos : SV_POSITION;
+			    half3	nm : SV_NORMAL;
+			    half2	uv : TEXCOORD0;
+			    half4	color : COLOR;
+			};
+			
+			
+			half	v[228];
+			
+			void vert( inout appdata_full p )
+			{
+				
+				int i = p.color.a * 255;
+				
+				p.vertex *= v[i];
+				
+			}
+			
+			struct Input
+			{
+				float2 uv_MainTex;
+			};
+			
+			sampler2D _MainTex;
+			
+			void surf(
+				Input IN,
+				inout SurfaceOutput o
+			)
+			{
+				half4 c = tex2D(_MainTex, IN.uv_MainTex);
+				o.Albedo = c.rgb;
+				o.Alpha = c.a;
+			}
+			
+		ENDCG
+		
+	}
+	
+	Fallback "Custom/Structure"
+}

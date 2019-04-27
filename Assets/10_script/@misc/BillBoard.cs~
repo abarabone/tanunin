@@ -1,0 +1,24 @@
+using UnityEngine;
+using System.Collections;
+
+public class BillBoard : MonoBehaviour
+{
+	
+	protected Transform	tf;
+	
+	
+	void Awake()
+	{
+		
+		tf = transform;
+		
+	}
+	
+	void Update()
+	{
+		
+		tf.rotation = Camera.main.transform.rotation * Quaternion.Euler( 0.0f, 180.0f, 0.0f );
+		
+	}
+	
+}

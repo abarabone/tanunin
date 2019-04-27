@@ -1,0 +1,225 @@
+using UnityEngine;
+using System.Collections;
+
+public class CombineSkinedMesh
+{
+	
+	
+	Mesh		dstMesh;
+	
+	
+	public void combineBonedMesh( GameObject go )
+	{
+		
+		var structureRender = go.GetComponent<StructureBonedMeshRender>();
+		
+		var parts = go.GetComponentsInChildren<Building>(false);
+		
+		
+		var totalVtxLength = 0;
+		
+		var ci = new CombineInstance[ parts.Length ];
+		
+		for( var i=0; i<parts.Length; i++ )
+		// メッシュコンバイン
+		{
+			
+			var part = parts[i];
+			
+			var srcmf = part.far.GetComponentInChildren<MeshFilter>();//
+			var srcmr = part.far.GetComponentInChildren<MeshRenderer>();//
+			
+			ci[i].mesh = srcmf.sharedMesh;
+			
+			Object.Destroy( srcmr );//
+			Object.Destroy( srcmf );//
+		//	srcmr.enabled = false;
+			
+			totalVtxLength += srcmf.sharedMesh.vertexCount;
+		}
+		
+		
+		var bounds = new Bounds();
+		
+		var firstBounds = true;
+		
+		bones = new StructureBone[ parts.Length ];
+		
+		visibles.init( parts.Length );
+		
+		var dstcols = new Color32[ totalVtxLength ];
+		
+		var idstcol = 0;
+		
+		for( var i=0; i<parts.Length; i++ )
+		// 頂点毎のパーツＩＤ生成
+		{
+			
+			var part = parts[i];
+			
+			var srcmf = part.far.GetComponentInChildren<MeshFilter>();//
+			
+			
+			part.farRender = structureRender;
+			
+			part.partId = i;
+			
+			
+			var tfpart = part.transform;
+			
+			var tfdetil = srcmf.transform;
+			
+			ci[i].transform = tfpart.localToWorldMatrix.inverse * tfdetil.localToWorldMatrix;
+			
+			
+			var tf = go.transform;
+			
+			var m = tf.localToWorldMatrix.inverse * tfdetil.localToWorldMatrix;
+			
+			
+			var sqradius = 0.0f;
+			
+			var srcmesh = srcmf.sharedMesh;
+			
+			var offset = srcmesh.bounds.center;
+			
+			var vtxs = srcmesh.vertices;
+			
+			for( var iv=srcmesh.vertexCount; iv-->0; idstcol++ )
+			{
+				
+				dstcols[ idstcol ] = new Color32( 0, 0, 0, (byte)i );
+				
+				if( firstBounds )
+				{
+					bounds = new Bounds( m.MultiplyPoint3x4( vtxs[iv] ), Vector3.zero );
+					firstBounds = false;
+				}
+				else
+				{
+					bounds.Encapsulate( m.MultiplyPoint3x4( vtxs[iv] ) );
+				}
+				
+				var sqdist = ( vtxs[iv] - offset ).sqrMagnitude;
+				
+				if( sqdist > sqradius ) sqradius = sqdist;
+				
+			}
+			
+			
+			bones[i].tf = part.transform;
+			
+			bones[i].rb = part.rigidbody;
+			
+			bones[i].offset = part.far.transform.localPosition + part.far.transform.localRotation * offset;
+			
+			bones[i].size = Mathf.Sqrt( sqradius ) * 2.0f;
+			
+			
+			part.offset = bones[i].offset;
+			
+			part.size = bones[i].size;
+			
+			
+			visibles[i] = 1.0f;
+			
+		}
+		
+		
+		var mesh = new Mesh();
+		
+		mesh.CombineMeshes( ci );
+		
+		mesh.colors32 = dstcols;
+		
+		if( mesh.normals.Length == 0 )
+		{
+			mesh.RecalculateNormals();
+		}
+		
+		mesh.Optimize();
+		
+		mesh.bounds = bounds;
+		
+		
+		go.AddComponent<MeshFilter>().sharedMesh = mesh;
+		
+		structureRender.mr = go.AddComponent<MeshRenderer>();
+		
+		var mat = new Material( Shader.Find("Custom/BonedStructure") );
+		
+		mat.mainTexture = parts[0].GetComponentInChildren<MeshRenderer>().sharedMaterial.mainTexture;
+		
+		structureRender.mr.sharedMaterial = mat;
+		
+		structureRender.initProperties( bones, visibles );
+		
+//		go.transform.GetComponent<Area>().ownedPartsLength = parts.Length;
+		
+	}
+	
+	
+/*	
+	public void combine( GameObject go )
+	{
+		
+		var structures = go.GetComponentsInChildren<MeshFilter>(true);
+		
+		
+		var mi = new MeshInfo( structures );
+		
+		var vtxs	= new Vector3[ mi.vertexLength ];
+		var nms		= new Vector3[ mi.vertexLength ];
+		var uvs		= new Vector2[ mi.vertexLength ];
+		var cols	= new Color32[ mi.vertexLength ];
+		var idxs	= new int[ mi.indexLength * 3 ];
+		
+		
+		for( var i=0; i<structures.Length; i++ )
+		{
+			
+			var s = structures[i];
+						
+			
+			var mesh = s.sharedMesh;
+			
+			
+			
+			
+		}
+		
+		
+	}
+	
+	
+	
+	
+	
+	struct MeshInfo
+	{
+		
+		public int	vertexLength;
+		public int	indexLength;
+		
+		
+		public MeshInfo( MeshFilter[] meshes )
+		{
+			vertexLength	= 0;
+			indexLength		= 0;
+			
+			foreach( var mesh in meshes )
+			{
+				
+				var m = mesh.sharedMesh;
+				
+				vertexLength += m.vertexCount;
+				
+				indexLength += m.GetTriangles(0).Length;
+				
+			}
+		}
+		
+	}
+*/	
+	
+}

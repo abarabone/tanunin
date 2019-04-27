@@ -1,0 +1,385 @@
+﻿using UnityEngine;
+using System.Collections;
+
+public abstract class _StructureBase2 : _HitProcessBase
+{
+
+	public Transform	tf		{ get; protected set; }
+	
+	public GameObject	near	{ get; protected set; }
+	
+	public StructureMeshRender2		nearRender	{ get; protected set; }
+	
+
+	public _StructurePartBase2[]	parts	{ get; protected set; }
+
+
+//	public StructureMeshBreakUnit	breaker;
+
+
+	public int	unbrokenPartsLength				{ get; protected set; }
+
+	public byte[]		triIndexToPartIdList	{ get; protected set; }
+	public MeshCollider	nearCollider			{ get; protected set; }
+
+	bool	isColliderBrokenInFrame;
+	int[]	colliderTriangles;
+
+
+
+
+	
+	public override enType shot( float damage, float pressure, Vector3 direction, Vector3 point, int hitIndex, int teamFlag )
+	{
+
+		if( damage > 0.0f )
+		{
+
+		//	var partId	= breaker.triIdToPartId( hitIndex );
+			var partId	= triIndexToPartIdList[ hitIndex ];
+
+
+			if( nearRender.isVisible( partId ) )
+			{
+
+				var part	= parts[ partId ];
+				
+			//	breaker.breakProcess( part, pressure, direction, point, this );
+				breakProcess( part, pressure, direction, point );
+
+			}
+
+		}
+
+		return enType.softStuff;
+
+	}
+	
+	
+	public override enType blasted( float damage, float pressure, float boringFactor, Vector3 center, float radius, int teamFlag )
+	{
+		
+		var localCenter	= tf.InverseTransformPoint( center );
+		
+		var sqrRadius	= radius * radius;
+		
+		foreach( var part in parts )
+		{
+			
+			if( nearRender.isVisible( part.partId ) )
+			{
+				var direction = part.tf.position - localCenter;
+				
+				if( direction.sqrMagnitude > sqrRadius )
+				{
+					//	breaker.breakProcess( part, pressure * 10.0f, tf.TransformDirection(direction), center, this );
+					breakProcess( part, pressure * 10.0f, tf.TransformDirection(direction), center );
+				}
+			}
+			
+		}
+		
+		return enType.softStuff;
+		
+	}
+	
+	
+	public virtual void destruct( bool playSound = false )
+		// 破壊したい時はこれを呼ぶ
+	{
+		Destroy( gameObject, 2.0f );
+	}
+
+
+	
+	protected void breakProcess( _StructurePartBase2 part, float pressure, Vector3 direction, Vector3 point )
+	{
+		
+		breakNearColliderPart( part );
+		
+		nearRender.setPartVisibilityOff( part.partId );
+		
+		part.fallDown( tf, pressure, direction, point );
+
+		unbrokenPartsLength--;
+
+
+		if( part.children != null )
+		{
+			for( var i = 1; i < part.children.Length; i++ )
+			{
+
+				var child = part.children[i];
+
+				breakNearColliderPart( child );
+				
+				nearRender.setPartVisibilityOff( child.partId );
+				
+				child.fallDown( tf, pressure, direction, point );
+
+				unbrokenPartsLength--;
+
+			}
+		}
+
+	}
+
+	void breakNearColliderPart( _StructurePartBase2 part )
+	{
+
+		if( colliderTriangles == null )
+		// 初回はメッシュ生成
+		{
+
+			var oldmesh = nearCollider.sharedMesh;
+			var	newmesh = new Mesh();
+			
+			newmesh.vertices	= oldmesh.vertices;
+		//	newmesh.triangles	= (int[])oldmesh.triangles.Clone();
+			newmesh.MarkDynamic();
+			
+			nearCollider.sharedMesh = newmesh;
+
+
+			colliderTriangles = oldmesh.triangles;	// これは実際には get で配列生成されてるっぽい
+
+		}
+		
+
+		var end = part.triangleLength + part.startTriangle;
+		
+		for( var i = part.startTriangle; i < end; i++ )
+		{
+			
+			var tri = i * 3;
+			
+			colliderTriangles[ tri + 0 ] = 0;
+			colliderTriangles[ tri + 1 ] = 0;
+			colliderTriangles[ tri + 2 ] = 0;
+			
+		}
+
+
+		if( !isColliderBrokenInFrame )
+		// フレーム中に複数回更新されるのをふせぐ
+		{
+
+			StartCoroutine( applyBrokenCollider() );
+
+		}
+
+	}
+
+	IEnumerator applyBrokenCollider()
+	// 更新された破壊済みメッシュを適用する
+	{
+		
+		isColliderBrokenInFrame = true;
+
+
+		yield return new WaitForFixedUpdate();
+
+
+		nearCollider.enabled = false;
+
+
+		nearCollider.sharedMesh.triangles = colliderTriangles;
+
+		isColliderBrokenInFrame = false;
+
+
+		nearCollider.enabled = true;
+
+	}
+
+
+	
+/*	
+	public void checkDstroyPartCount( int id )
+	{
+		partsLength--;
+		
+		if( partsLength <= 0 )
+		{
+			Destroy( gameObject, 2.0f );
+		}
+		
+		if( id == partsLength )
+		{
+			parts[id].childId = -1;
+			
+			parts[id] = null;
+		}
+		else
+		{
+			parts[id].childId = -1;
+			
+			parts[ partsLength ].childId = id;
+			
+			parts[id] = parts[ partsLength ];
+			
+			parts[ partsLength ] = null;
+		}
+		
+	}
+*/	
+
+
+
+
+
+
+	// 遠近切り替え処理
+
+	public abstract void switchToNear();
+	public abstract void switchToFar();
+	
+
+/*
+	public IEnumerator applyBrokenCollider()
+	// 更新された破壊済みメッシュを適用する
+	{
+
+		yield return new WaitForFixedUpdate();
+		
+		breaker.applyBrokenCollider();
+
+	}
+*/
+}
+
+
+/*
+public struct StructureMeshBreakUnit
+{
+	
+	MeshCollider	nearCollider;
+
+
+	public int		unbrokenPartsLength		{ get; private set; }
+
+	public byte[]	triIndexToPartIdList	{ get; private set; }
+
+
+	int[]	colliderTriangles;
+
+	bool	isColliderBrokenInFrame;
+
+
+	
+	public void init( GameObject near, ref StructureTemplateUnit template )
+	{
+
+		nearCollider	= near.GetComponent<MeshCollider>();
+		
+
+		unbrokenPartsLength		= template.parts.Length;
+		
+		triIndexToPartIdList	= template.triIndexToPartIdList;
+
+	}
+
+	public int triIdToPartId( int triId )
+	{
+		return triIndexToPartIdList[ triId ];
+	}
+
+
+	public void breakProcess( _StructurePartBase2 part, float pressure, Vector3 direction, Vector3 point, _StructureBase2 owner )
+	{
+		
+		breakPart( part, owner );
+		
+		owner.nearRender.setPartVisibilityOff( part.partId );
+		
+		part.fallDown( owner.tf, pressure, direction, point );
+		
+		unbrokenPartsLength--;
+		
+		
+		if( part.children != null )
+		{
+			for( var i = 1; i < part.children.Length; i++ )
+			{
+				
+				var child = part.children[i];
+				
+				breakPart( child, owner );
+				
+				owner.nearRender.setPartVisibilityOff( child.partId );
+				
+				child.fallDown( owner.tf, pressure, direction, point );
+				
+				unbrokenPartsLength--;
+				
+			}
+		}
+		
+	}
+	
+	void breakPart( _StructurePartBase2 part, _StructureBase2 owner )
+	{
+		
+		if( colliderTriangles == null )
+		// 初回はメッシュ生成
+		{
+			
+			var oldmesh = nearCollider.sharedMesh;
+			var	newmesh = new Mesh();
+			
+			newmesh.vertices	= oldmesh.vertices;
+			//	newmesh.triangles	= (int[])oldmesh.triangles.Clone();
+			newmesh.MarkDynamic();
+			
+			nearCollider.sharedMesh = newmesh;
+			
+			
+			colliderTriangles = oldmesh.triangles;	// これは実際には get で配列生成されてるっぽい
+			
+		}
+		
+		
+		var end = part.triangleLength + part.startTriangle;
+		
+		for( var i = part.startTriangle; i < end; i++ )
+		{
+			
+			var tri = i * 3;
+			
+			colliderTriangles[ tri + 0 ] = 0;
+			colliderTriangles[ tri + 1 ] = 0;
+			colliderTriangles[ tri + 2 ] = 0;
+			
+		}
+		
+		
+		if( !isColliderBrokenInFrame )
+		// フレーム中に複数回更新されるのをふせぐ
+		{
+
+			isColliderBrokenInFrame = true;
+
+			owner.StartCoroutine( owner.applyBrokenCollider() );
+			
+		}
+		
+	}
+
+	public void applyBrokenCollider()
+	// 更新された破壊済みメッシュを適用する
+	{
+
+		nearCollider.enabled = false;
+		
+		
+		nearCollider.sharedMesh.triangles = colliderTriangles;
+		
+		isColliderBrokenInFrame = false;
+		
+		
+		nearCollider.enabled = true;
+		
+	}
+
+}
+*/

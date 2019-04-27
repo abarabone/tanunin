@@ -1,0 +1,12 @@
+using UnityEngine;
+using System.Collections;
+
+public abstract class ChHitProcessing : HitProcessing
+{
+
+	
+//	public abstract void struck();
+	
+	
+	
+}

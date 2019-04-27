@@ -1,0 +1,174 @@
+using UnityEngine;
+using System.Collections;
+
+public class TerrainFieldHolder : MonoBehaviour
+{
+
+//	public Terrain			terrain		{ get; protected set; }
+
+//	public Material	blankMaterial;
+
+	
+	TerrainField[,]	splits;
+	
+	public int	splitLevel;
+	
+	
+	
+	public void split()
+	{
+		
+		var terrain = GetComponent<Terrain>();
+		
+		var tf = transform;
+		
+		var td = terrain.terrainData;
+		
+		
+		var dstNumNest	= 1 << splitLevel;Debug.Log( dstNumNest );
+		
+		splits	= new TerrainField[ dstNumNest, dstNumNest ];
+		
+		var dstHmReso	= ( td.heightmapResolution & 0x7ffffffe ) >> splitLevel;
+		var dstAmReso	= ( td.alphamapResolution & 0x7ffffffe ) >> splitLevel;
+		
+		var dstHmSize = Vector3.Scale( td.heightmapScale, new Vector3(dstHmReso,1.0f,dstHmReso) );
+		
+		
+		for( var iy = 0; iy < dstNumNest; iy++ )
+		for( var ix = 0; ix < dstNumNest; ix++ )
+		{
+			
+			var igo = new GameObject();
+			var ifd	= igo.AddComponent<TerrainField>();
+			var itr = igo.AddComponent<Terrain>();
+			var icd	= igo.AddComponent<TerrainCollider>();
+			
+			
+		//	itr.heightmapMaximumLOD		= 3;
+			itr.heightmapMaximumLOD		= terrain.heightmapMaximumLOD;
+			itr.heightmapPixelError		= 49;//terrain.heightmapPixelError;
+			itr.basemapDistance			= terrain.basemapDistance;
+			itr.castShadows				= terrain.castShadows;
+		//	itr.lightmapIndex			= terrain.lightmapIndex;
+			itr.treeBillboardDistance	= terrain.treeBillboardDistance;
+			itr.treeCrossFadeLength		= terrain.treeCrossFadeLength;
+			itr.treeDistance			= terrain.treeDistance;
+			itr.treeMaximumFullLODCount	= terrain.treeMaximumFullLODCount;
+		//	itr.detailObjectDensity		= terrain.detailObjectDensity;
+		//	itr.detailObjectDistance	= terrain.detailObjectDistance;
+			
+			
+			var itd = new TerrainData();
+			itd.heightmapResolution	= dstHmReso + 1;
+			itd.size				= dstHmSize;
+			itd.splatPrototypes		= td.splatPrototypes;
+			itd.alphamapResolution	= dstAmReso;
+			itd.baseMapResolution	= td.baseMapResolution >> splitLevel;
+		//	itd.SetDetailResolution( td.detailResolution >> splitLevel >> 3, 8 );//td.detailResolutionPerPatch );
+			
+			itd.treePrototypes	= td.treePrototypes;//(TreePrototype[])td.treePrototypes.Clone();
+			
+			
+			var heights = td.GetHeights( ix * dstHmReso, iy * dstHmReso, dstHmReso + 1, dstHmReso + 1 );
+			itd.SetHeights( 0, 0, heights );
+			
+			var alphas = td.GetAlphamaps( ix * dstAmReso, iy * dstAmReso, dstAmReso, dstAmReso );
+			itd.SetAlphamaps( 0, 0, alphas );
+			
+			
+			itr.terrainData = itd;
+			icd.terrainData	= itd;
+			igo.layer	= gameObject.layer;
+			
+			var itf = igo.transform;
+			itf.parent = tf;
+			itf.localPosition = new Vector3( dstHmSize.x * ix, 0.0f, dstHmSize.z * iy );
+			
+			
+			ifd.init( itr, icd );
+			
+			
+			splits[ iy, ix ] = ifd;//itr;
+			
+		}
+		
+	/*	
+		for( var j = 0; j < dstNumNest; j++ )
+		for( var i = 0; i < dstNumNest; i++ )
+		{
+			
+			var bottom	= ( j - 1 > -1 )?			splits[ i, j - 1 ].terrain: null;
+			var top		= ( j + 1 < dstNumNest )?	splits[ i, j + 1 ].terrain: null;
+			var left	= ( i - 1 > -1 )?			splits[ i - 1, j ].terrain: null;
+			var right	= ( i + 1 < dstNumNest )?	splits[ i + 1, j ].terrain: null;
+			
+			splits[ i, j ].terrain.SetNeighbors( left, top, right, bottom );
+			
+		}
+	*/
+		for( var iy = 0; iy < dstNumNest; iy++ )
+		for( var ix = 0; ix < dstNumNest; ix++ )
+		{
+			
+			var bottom	= ( iy - 1 > -1 )?			splits[ iy - 1, ix ].terrain: null;
+			var top		= ( iy + 1 < dstNumNest )?	splits[ iy + 1, ix ].terrain: null;
+			var left	= ( ix - 1 > -1 )?			splits[ iy, ix - 1 ].terrain: null;
+			var right	= ( ix + 1 < dstNumNest )?	splits[ iy, ix + 1 ].terrain: null;
+			
+			splits[ iy, ix ].terrain.SetNeighbors( left, top, right, bottom );
+			
+		}
+		
+		
+	//	terrain.enabled = false;
+		collider.enabled = false;
+	//	terrain.terrainData = null;
+		
+	//	Destroy( collider );
+		
+		terrain.heightmapMaximumLOD		= 512;
+		terrain.heightmapPixelError		= 200;
+		terrain.basemapDistance			= 0;
+		terrain.castShadows				= false;
+		terrain.lightmapIndex			= -1;
+		
+/*		
+		var scale	= (float)dstNumNest;
+		var rscale	= 1.0f / scale;
+		
+		foreach( var tree in td.treeInstances )
+		{
+			var ix = Mathf.Floor( tree.position.x * scale );
+			var iz = Mathf.Floor( tree.position.z * scale );
+			
+			addTree( ix, iz, tree, scale, rscale );
+		}
+		
+		
+	//	foreach( var t in splits ) t.Flush();
+*/		
+
+		terrain.editorRenderFlags	= /*TerrainRenderFlags.details | */TerrainRenderFlags.trees;
+
+	}
+	
+	
+	void addTree( float ix, float iz, TreeInstance src, float scale, float rscale )
+	{
+		
+		var ti = new TreeInstance();
+		
+		ti.color			= Color.white;
+		ti.heightScale		= src.heightScale;
+		ti.widthScale		= src.widthScale;
+		ti.lightmapColor	= src.lightmapColor;
+		ti.prototypeIndex	= src.prototypeIndex;
+		ti.position			= new Vector3( ( src.position.x * scale - ix ), src.position.y, ( src.position.z * scale - iz ) );
+		
+		splits[ (int)iz, (int)ix ].terrain.AddTreeInstance( ti );
+		
+	}
+	
+	
+}

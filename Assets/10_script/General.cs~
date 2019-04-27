@@ -1,0 +1,178 @@
+using UnityEngine;
+using System.Collections;
+
+using ul = UserLayer;
+
+
+
+
+
+public class UserLayer
+{
+	
+	static public readonly int _player			= LayerMask.NameToLayer( "player" );
+	static public readonly int _otherPlayer		= LayerMask.NameToLayer( "otherPlayer" );
+	
+	static public readonly int _enemyDetail			= LayerMask.NameToLayer( "enemyDetail" );
+	static public readonly int _enemyEnvelope		= LayerMask.NameToLayer( "enemyEnvelope" );
+	static public readonly int _enemyMoveBody		= LayerMask.NameToLayer( "enemyMoveBody" );
+	static public readonly int _enemyEnvelopeDead	= LayerMask.NameToLayer( "enemyEnvelopeDead" );
+	
+	static public readonly int _bgDetail		= LayerMask.NameToLayer( "bgDetail" );
+	static public readonly int _bgSleepEnvelope	= LayerMask.NameToLayer( "bgSleepEnvelope" );
+	static public readonly int _bgEnvelope		= LayerMask.NameToLayer( "bgEnvelope" );
+	static public readonly int _bgPlotEnvelope	= LayerMask.NameToLayer( "bgPlotEnvelope" );
+	static public readonly int _bgField			= LayerMask.NameToLayer( "bgField" );
+	
+	static public readonly int _outerWall		= LayerMask.NameToLayer( "outerWall" );
+	
+	static public readonly int _itemObject		= LayerMask.NameToLayer( "itemObject" );
+	static public readonly int _fieldObject		= LayerMask.NameToLayer( "fieldObject" );
+	static public readonly int _fenceObject		= LayerMask.NameToLayer( "fenceObject" );
+	
+	
+	static public readonly int player			= 1 << _player;
+	static public readonly int otherPlayer		= 1 << _otherPlayer;
+	
+	static public readonly int enemyDetail		= 1 << _enemyDetail;
+	static public readonly int enemyEnvelope	= 1 << _enemyEnvelope;
+	static public readonly int enemyMoveBody	= 1 << _enemyMoveBody;
+	static public readonly int enemyEnvelopeDead= 1 << _enemyEnvelopeDead;
+	
+	static public readonly int bgDetail			= 1 << _bgDetail;
+	static public readonly int bgSleepEnvelope	= 1 << _bgSleepEnvelope;
+	static public readonly int bgEnvelope		= 1 << _bgEnvelope;
+	static public readonly int bgPlotEnvelope	= 1 << _bgPlotEnvelope;
+	static public readonly int bgField			= 1 << _bgField;
+	
+	static public readonly int outerWall		= 1 << _outerWall;
+	
+	static public readonly int itemObject		= 1 << _itemObject;
+	static public readonly int fieldObject		= 1 << _fieldObject;
+	static public readonly int fenceObject		= 1 << _fenceObject;
+	
+	
+	static public readonly int players			= player | otherPlayer;
+	static public readonly int charMoves		= players | enemyMoveBody;
+	
+	static public readonly int groundForPlayer	= otherPlayer | bgDetail | bgField | enemyDetail | fieldObject | fenceObject;
+	static public readonly int groundForEnemy	= bgSleepEnvelope | bgEnvelope | bgField;// | enemyMoveBody;
+	
+	static public readonly int bulletHitable	= player | enemyDetail | bgDetail | bgField | fieldObject;
+	static public readonly int explosionHitable	= player | enemyEnvelope | enemyEnvelopeDead | bgSleepEnvelope | bgEnvelope | bgField | fieldObject | fenceObject;
+	static public readonly int fireHitableBg	= bgDetail | bgField | fieldObject;
+	static public readonly int fireHitableCh	= player | enemyEnvelope;
+	static public readonly int fireHitable		= fireHitableBg | fireHitableCh;
+	static public readonly int homingable		= enemyEnvelope;// | player;
+	static public readonly int acidHitableBg	= bgDetail | bgField | fieldObject;
+	static public readonly int acidHitableCh	= player | enemyEnvelope;
+	static public readonly int boundHitableBg	= bgDetail | bgField | fieldObject;
+	
+}
+
+
+
+
+public enum enActType
+{
+	players,
+	npcSoldier,
+	npcThird,
+	enemy
+}
+
+
+public enum enHate
+{
+	
+}
+
+
+
+public enum enTeamMask
+{
+	
+	player	= 0x255,	// 最大８チーム
+	
+	enemy	= ~0x255,	// 最大２４チーム
+	
+}
+public enum enTeamShift
+{
+	
+	player	= 0,
+	
+	enemy	= 8,
+	
+}
+
+public struct TeamLayer
+{
+	
+	public int	flag;
+	
+	
+	public bool isMate( int otherTeamFlag )
+	{
+		return (flag & otherTeamFlag) != 0;
+	}
+	
+}
+
+
+
+static class TransformExtensions
+{
+	static public Transform findWithLayerInDirectChildren( this Transform tf, int layer )
+	{
+
+		for( var i = tf.childCount; i-- > 0; )
+		{
+			var tfChild = tf.GetChild(i);
+			
+			if( tfChild.gameObject.layer == layer )
+			{
+				return tfChild;
+			}
+		}
+
+		return null;
+	}
+}
+
+static class MonoBehaviourExtensions
+{
+	static public T[] getComponentsInDirectChildren<T>( this MonoBehaviour component ) where T:MonoBehaviour
+	{
+
+		var length	= 0;
+		
+		var tf	= component.transform;
+		
+		for( var i = tf.childCount; i-- > 0; )
+		{
+			if( tf.GetChild(i).GetComponent<T>() != null ) length++;
+		}
+		
+		var children = new T[ length ];
+
+		for( var i = tf.childCount; i-- > 0; )
+		{
+			var c = tf.GetChild(i).GetComponent<T>();
+
+			if( c != null ) children[ --length ] = c;
+		}
+
+		return children;
+
+	}
+}
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,53 @@
+using UnityEngine;
+using System.Collections;
+
+public class GrenedeLauncher : _WaponBase
+{
+
+	public float	emitImpulse;
+	
+	
+	
+	public override void mainFire( _ActionBase act )
+	{
+		readyAtPushTrigger();
+		
+		if( nextFireTime <= Time.time && reastBullets > 0 )
+		{
+			
+			sound.PlayDelayed( 0.0f );
+			
+			
+			var laAngle = Random.insideUnitCircle * lowAccuracy;
+			
+			var pos = tfMuzzle.position;
+			var rot = tfMuzzle.rotation * Quaternion.Euler( -emitAngle + laAngle.x, laAngle.y, 0.0f );
+			
+			var bi = bullet.emitBullet( pos, rot, range, act );
+			
+			bi.addForce( emitImpulse );
+			
+			
+			nextFireTime = Time.time + nextFireAbleTime;
+			
+			checkMagazine();
+		}
+		
+	}
+	
+	
+	public override void subFire( PcAction act )
+	{
+		
+		
+		
+	}
+	
+	public override void subFireOff( PcAction act )
+	{
+		
+		
+		
+	}
+	
+}

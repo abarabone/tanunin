@@ -1,0 +1,367 @@
+using UnityEngine;
+using System.Collections;
+using System.Collections.Generic;
+
+
+public interface IMissionEventable
+{
+
+}
+
+
+public interface IConditionUnit
+{
+	
+	IConditionUnit applyTo( _MEventUnitBase e );
+	
+	IConditionUnit applyTo<T>( _MEventUnitDepended<T> e ) where T : class, IMissionEventable;
+	
+}
+
+public interface IMEvent
+{
+	
+	IMEvent setTriggerCount( int emode );
+	
+	IMEvent setTriggerMode( _MEventUnitBase.enMode emode );
+	
+	void startup();
+	
+}
+
+public interface ICascade
+{
+	
+	void cascadeTo( _MEventUnitBase e );
+	
+	void cascadeTo<T>( _MEventUnitDepended<T> e ) where T : class, IMissionEventable;
+	
+}
+
+
+
+
+// ミッションイベントはホストがすべて管理する
+// イベントは個々のシステムイベントに置き換えられてクライアントへ送られる（ spawn は一体ずつ生成システムへ要求される、のように）
+// 外部のイベントジェネレータから渡されたものを登録して実行していく
+// イベントは _MEventUnitBase を継承して _process() メソッドをオーバーライドする
+// 条件は各ターゲットがあるものはそれへ渡されてそこで条件判定されて、成立したら返ってくる
+
+
+public class EventMaster : MonoBehaviour, IMissionEventable
+{
+	
+	static EventMaster	entity;
+	
+	static public MEventTargetLinker<GroupMaster>	groupMasterTargetLinker;
+	
+	
+	static int approvaledEventCount;
+	
+	static public bool hasNoEvent	{ get{ return approvaledEventCount <= 0; } }
+	
+	static public void increaseEvent()
+	{
+		approvaledEventCount++;//Debug.Log( "event " + approvaledEventCount );
+	}
+	static public void decreaseEvent()
+	{
+		approvaledEventCount--;//Debug.Log( "event " + approvaledEventCount );
+	}
+	
+	
+	void Awake()
+	{
+		
+		entity = this;
+
+
+		groupMasterTargetLinker = new MEventTargetLinker<GroupMaster>();
+
+		SystemManager.groups.eventStart( groupMasterTargetLinker );
+		
+	}
+	
+	
+	
+	static public void startMEventCoroutine( IEnumerator r )
+	{
+		entity.StartCoroutine( r );
+	}
+/*	
+	static public void registWaitTimeCondition( ConditionWaitTime c )
+	{
+		c.waitTime += Time.time;
+		
+		c.checkWaitTimeOnly();
+	}
+*/
+
+	
+	static public ConditionWaitTime createWaitTimeCondition()
+	{
+		var c = new ConditionWaitTime();
+
+		return c;
+	}
+
+	static public Tc createCondition<Tc>() where Tc : _ConditionUnit<IMissionEventable>, new()
+	{
+		return new Tc();
+	}
+
+	static public Te createEvent<Te>() where Te : _MEventUnitBase, new()
+	{
+		return new Te();
+	}
+
+}
+
+
+
+
+
+
+// イベントターゲット ********************************************************
+
+public class MEventTargetLinker<T> where T:class,IMissionEventable
+	// ターゲットは、条件やイベントの生成前にすでに存在しているとは限らない
+	// そのため、ターゲット生成の通知機構が必要　また、ターゲットが条件成立を判定・配送する機構も必要　それらを受け持つ繋ぎとなる
+	// ターゲット側のクラスと、条件やイベント、双方に持たせて間に入って処理する
+{
+	
+	public MEventConditionHolder<T>	conditions;	// ターゲットが通知すべき条件のチェイン
+	
+	
+	public T	target;
+	
+	int	dependLockRefCount;	// 依存ロックされている間は解放されないようにする
+	
+	
+	public float	processedTime;	// 初期値はゼロ、ターゲットが開始するとその時刻
+	
+	
+	
+	public bool isDependLocked()
+	{
+		return dependLockRefCount > 0;
+	}
+	
+	
+	public void addDependLock()
+	{
+		
+		dependLockRefCount++;
+		
+	}
+	
+	public void releaseDependLock()
+	{
+		
+		dependLockRefCount--;
+		
+	}
+	
+	
+	public void startup( T targ )
+	{
+		target = targ;
+		
+		processedTime = Time.time;
+		
+		checkAllConditions();
+	}
+	
+	public void checkAllConditions()
+		// ターゲットに登録した条件チェック機構から行う
+	{
+		for( var c = conditions.first; c != null; )
+		{
+			var next = c.next;	// 即実行されてリムーブということがあるかも？
+			
+			c.check();
+			
+			c = next;
+		}
+	}
+	
+	public void shutdown()
+	{
+		target = null;
+		
+		processedTime = 0.0f;
+		
+		conditions.removeAll();
+	}
+	
+	
+
+	public Tc createCondition<Tc>() where Tc : _ConditionUnit<T>, new()
+	{
+		var c = new Tc();
+		
+		c._registTo( this );
+		
+		return c;
+	}
+
+	public Te createEvent<Te>() where Te : _MEventUnitDepended<T>, new()
+	{
+		var e = new Te();
+
+		e._depend( this );
+		
+		return e;
+	}
+
+}
+
+// ---------------------------------------------------------
+
+public struct EventTargetLinkerHolder<T> where T:class,IMissionEventable
+	// それぞれのターゲットが所持し、リンカーを格納する
+{
+	
+	public MEventTargetLinker<T>	linker	{ get; private set; }
+	
+	
+	public void init( MEventTargetLinker<T> targetLinker, T target )
+	{
+		if( targetLinker != null )
+		{
+			linker	= targetLinker;
+			
+			linker.startup( target );
+		}
+	}
+	
+	public void fin()
+	{
+		if( linker != null )
+		{
+			linker.shutdown();
+			
+			linker = null;
+		}
+	}
+	
+	
+	public bool isDependLocked()
+	{
+		return ( linker != null )? linker.isDependLocked(): false;
+	}
+	
+	public void checkAll()
+	{
+		
+		if( linker != null ) linker.checkAllConditions();
+		
+	}
+	
+}
+
+
+
+
+// 条件チェインホルダ **********************************************
+
+// 条件はどっかにプールを作るべきかなぁ？　いや、条件ごとにクラス別だからだめか？
+
+public struct MEventConditionHolder<T> where T:class,IMissionEventable
+{
+	
+	public _ConditionUnit<T>	first;
+	public _ConditionUnit<T>	last;
+	
+	
+	public void AddLast( _ConditionUnit<T> c )
+	{
+		//	Debug.Log( "add last" );
+		
+		if( first == null ) first = c;
+		
+		c.prev = last;
+		c.next = null;
+		
+		if( last != null ) last.next = c;
+		last = c;
+	}
+	
+	public void insertPrev( _ConditionUnit<T> c1, _ConditionUnit<T> c2 )
+	{
+		//	Debug.Log( "insert prev" );
+		
+		if( c2 != null )
+		{
+			if( c2.prev == null ) first = c1;
+			
+			c1.prev = c2.prev;
+			c1.next = c2;
+			
+			if( c1.prev != null ) c1.prev.next = c1;
+			c1.next.prev = c1;
+		}
+		else
+			// e2 がないなら末尾登録と同じ
+		{
+			AddLast( c1 );
+		}
+	}
+	
+	public void removeFirst()
+	{
+		//	Debug.Log( "remove first" );
+		
+		if( first != null )
+		{
+			var oldfirst = first;
+			
+			if( first.next != null ) first.next.prev = null;
+			first = first.next;
+			
+			oldfirst.prev = null;// なくてもいいはずだが
+			oldfirst.next = null;
+		}
+	}
+	
+	public void remove( _ConditionUnit<T> c )
+	{
+		//	Debug.Log( "remove" );
+		
+		if( c.prev == null )
+		{
+			first = c.next;
+		}
+		else
+		{
+			c.prev.next = c.next;
+		}
+		if( c.next == null )
+		{
+			last = c.prev;
+		}
+		else
+		{
+			c.next.prev = c.prev;
+		}
+		
+		c.prev = null;
+		c.next = null;
+	}
+	
+	public void removeAll()
+	{
+		for( var c = first; c != null; )
+		{
+			var next = c.next;
+			
+			remove( c );
+			
+			c = next;
+		}
+	}
+	
+}
+
+
+

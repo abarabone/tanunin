@@ -1,0 +1,62 @@
+using UnityEngine;
+using System.Collections;
+
+public abstract class _StructurePartBase : _HitProcessBase
+{
+	
+	public StructureMeshRender	nearRender;//	{ get; set; }
+	
+	public int	partId;//	{ get; set; }
+	public int	childId;//	{ get; set; }
+	
+	public Transform		tf;//		{ get; set; }
+	public Rigidbody		rb;//		{ get; set; }
+	public MeshRenderer		mr;//		{ get; set; }
+	public MeshFilter		mf;//		{ get; set; }
+//	public Collider			cd;//		{ get; set; }//
+	public _StructurePartBase[]		children;//	{ get; set; }
+	
+	
+	
+	public int	startTriangle;//		{ get; set; }
+	public int	triangleLength;//		{ get; set; }
+	
+	public void setMeshInfo( int startTri, int triLength )
+	{
+		startTriangle	= startTri;
+		triangleLength	= triLength;
+	}
+	
+	public virtual void init( int id, StructureMeshRender innr, MeshRenderer inmr )
+	{
+		partId		= id;
+		childId		= id;
+		nearRender	= innr;
+		mr			= inmr;
+		mf			= GetComponent<MeshFilter>();
+		rb			= rigidbody;
+		tf			= transform;
+	//	cd			= collider;//
+		
+		var chs = GetComponentsInChildren<_StructurePartBase>( true );
+		children	= ( chs.Length > 1 )? chs: null;
+
+	}
+
+	public virtual void init( int id, StructureMeshRender innr )
+	{
+
+		partId		= id;
+		childId		= id;
+		nearRender	= innr;
+		mr			= GetComponent<MeshRenderer>();
+		mf			= GetComponent<MeshFilter>();
+		rb			= rigidbody;
+		tf			= transform;
+		
+		var chs = GetComponentsInChildren<_StructurePartBase>( false );
+		children	= ( chs.Length > 1 )? chs: null;
+
+	}
+	
+}

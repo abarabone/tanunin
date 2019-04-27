@@ -1,0 +1,330 @@
+using UnityEngine;
+using System.Collections;
+
+public abstract class _StructureBase : _HitProcessBase
+{
+
+	public GameObject	prefab;
+	
+
+	public Transform	tf		{ get; protected set; }
+	
+	public GameObject	near	{ get; protected set; }
+	
+	public StructureMeshRender		nearRender	{ get; set; }
+	
+		
+//	protected _StructurePartBase[]	parts	{ set; get; }
+//	protected int	partsLength;	// parts 中の null 参照以外の実体数
+	
+	
+	public _StructurePartBase[]	parts;
+	public int	partsLength;
+	
+	
+	
+	public _StructurePartBase[]	triangleIndexToParts;
+	public MeshCollider	nearCollider;
+	bool	isColliderBroken;
+	
+	public void buildNearColliderInfo()
+	{
+		
+		var mf = near.GetComponent<MeshFilter>();
+		
+		nearCollider = near.AddComponent<MeshCollider>();
+		nearCollider.sharedMesh = mf.sharedMesh;
+		Destroy( near.rigidbody );//
+		near.layer = UserLayer._bgDetail;//
+		
+		
+		var triLength = mf.sharedMesh.triangles.Length / 3;
+		
+		triangleIndexToParts	= new _StructurePartBase[ triLength ];
+		
+		foreach( var p in parts )
+		{
+			var end = p.triangleLength + p.startTriangle;
+			
+			for( var i = p.startTriangle; i < end; i++ )
+			{
+				
+				triangleIndexToParts[ i ] = p;
+				
+			}
+		}
+		
+	}
+	
+	public void breakNearColliderPart( int hitIndex )
+	{
+	//	nearCollider.enabled = false;
+		near.SetActive( false );
+		
+		if( isColliderBroken == false )
+		{
+			var oldmesh = nearCollider.sharedMesh;
+			var	newmesh = new Mesh();
+			
+			newmesh.vertices	= oldmesh.vertices;
+			newmesh.triangles	= (int[])oldmesh.triangles.Clone();
+			newmesh.MarkDynamic();
+			
+			nearCollider.sharedMesh = newmesh;
+			
+			isColliderBroken = true;
+		}
+		
+		
+		var part = triangleIndexToParts[ hitIndex ];
+	//	var tris = (int[])nearCollider.sharedMesh.triangles.Clone();
+		var vtxs = nearCollider.sharedMesh.vertices;
+		var tris = nearCollider.sharedMesh.triangles;
+		
+		
+		var end = part.triangleLength + part.startTriangle;
+		
+		for( var i = part.startTriangle; i < end; i++ )
+		{
+			
+			var tri = i * 3;
+			
+			tris[ tri + 0 ] = 0;
+			tris[ tri + 1 ] = 0;
+			tris[ tri + 2 ] = 0;
+			
+		}
+		
+	//	var m = nearCollider.sharedMesh;
+	//	m.triangles = tris;
+	//	nearCollider.sharedMesh = m;	
+	//	nearCollider.sharedMesh.vertices = vtxs;
+		nearCollider.sharedMesh.triangles = tris;
+		
+	//	nearCollider.enabled = true;
+		near.SetActive( true );
+	}
+	
+	public override enType shot( float damage, float pressure, Vector3 direction, Vector3 point, int hitIndex, int teamFlag )
+	{
+		
+		breakNearColliderPart( hitIndex );//Debug.Log( hitIndex );
+		
+		return triangleIndexToParts[ hitIndex ].shot( damage, pressure, direction, point, 0, teamFlag );
+		
+	}
+	
+	
+	public abstract void attatch( GameObject nearInstance );
+	
+	
+	public virtual void destruct( bool playSound = false )
+	{
+		Destroy( gameObject, 2.0f );
+	}
+	
+	
+	
+	public void checkDstroyPartCount( int id )
+	{
+		partsLength--;
+		
+		if( partsLength <= 0 )
+		{
+			Destroy( gameObject, 2.0f );
+		}
+		
+		if( id == partsLength )
+		{
+			parts[id].childId = -1;
+			
+			parts[id] = null;
+		}
+		else
+		{
+			parts[id].childId = -1;
+			
+			parts[ partsLength ].childId = id;
+			
+			parts[id] = parts[ partsLength ];
+			
+			parts[ partsLength ] = null;
+		}
+		
+	}
+	
+	
+	
+	// 遠近切り替え処理："_"ではじまるのが一度にやるバージョン、"__"が個々一度に、"_p_"が分散処理バージョン "_po_"は１フレームに一戸１ずつ
+	
+	static int	nowActivatePartsCountResoruce = 64;
+	
+	// 外部向け -------------
+	
+	public abstract void switchToNear();
+	public abstract void switchToFar();
+	
+	
+	// setActive() 一発版 -------------------
+	
+	protected void setNearVisibility( bool visibility )
+	{
+		near.SetActive( visibility );
+	}
+	
+	protected virtual void setFarVisibility( bool visibility, float visibilityValue )
+	{
+		
+	}
+	
+	protected void _switchToNear()
+	{
+		setFarVisibility( false, 0.0f );
+		
+		setNearVisibility( true );
+	}
+	
+	protected void _switchToFar()
+	{
+		setNearVisibility( false );
+		
+		setFarVisibility( true, 1.0f );
+	}
+	
+	
+	// アットワンス内部処理 --------------
+	
+	void setNearVisibilityIndividually( bool visibility )
+	// 個々への setActive()
+	{
+		
+		for( var i = partsLength; i-- > 0; )
+		{
+			if( parts[i] )
+			{
+				parts[i].gameObject.SetActive( visibility );
+			//	parts[i].cd.enabled = visibility;// コライダオフよりもセットアクティブの方がかなり速い
+			}
+		}
+		
+		nearRender.mr.enabled = visibility;
+	}
+	
+	protected void __switchToNear()
+	{
+		setFarVisibility( false, 0.0f );
+		
+		setNearVisibilityIndividually( true );
+	}
+	
+	protected void __switchToFar()
+	{
+		setNearVisibilityIndividually( false );
+		
+		setFarVisibility( true, 1.0f );
+	}
+	
+	
+	// 分散処理バージョン内部処理　逆にカクつくかも ----------------
+	
+	int	iNearVisibilityCounter;
+	
+	IEnumerator setVisibilityNearOnAndFarOffVariance()
+	{// バグある気がする
+		
+		var arrowCount = 0;
+		iNearVisibilityCounter = partsLength;
+		
+		do
+		{
+			
+			arrowCount = ( iNearVisibilityCounter >= nowActivatePartsCountResoruce )? nowActivatePartsCountResoruce: iNearVisibilityCounter;
+			
+			nowActivatePartsCountResoruce -= arrowCount;
+			
+			var next = iNearVisibilityCounter - arrowCount;
+			
+			while( iNearVisibilityCounter-- > next )// 後ろから行うことによって子→親の順になるように配慮
+			{
+				if( parts[iNearVisibilityCounter] ) parts[iNearVisibilityCounter].gameObject.SetActive( true );
+			}
+			
+			yield return 0;
+			
+			nowActivatePartsCountResoruce += arrowCount;
+			
+		//	Debug.Log( GetInstanceID() +"@"+ nowActivatePartsCountResoruce + ":" + iNearVisibilityCounter +"/"+ near.GetComponentsInChildren<BuildingPart>(true).Length );
+			
+		}
+		while( iNearVisibilityCounter > 0 );
+		
+		
+		nearRender.mr.enabled = true;
+		
+		setFarVisibility( false, 0.0f );
+	}
+	
+	protected void _p_switchToNear()
+	{
+		
+		StartCoroutine( setVisibilityNearOnAndFarOffVariance() );
+		
+	}
+	
+	// 一フレームに一戸 -----------------------
+	
+	public static int	iNearOnceCounter;
+	
+	bool	reserveToNear;
+	
+	IEnumerator setVisibilityNearOnAndFarOffVarianceOnece()
+	{
+		
+		reserveToNear = true;
+		
+		while( iNearOnceCounter > 0 && reserveToNear )
+		{
+			
+			yield return new WaitForFixedUpdate();//return 0;
+			
+		}
+		
+		if( reserveToNear )
+		{
+			
+			reserveToNear = false;
+			
+			iNearOnceCounter = 1;
+			
+			setFarVisibility( false, 0.0f );
+			
+			setNearVisibilityIndividually( true );
+			
+		//	yield return 0;
+			
+			
+			iNearOnceCounter = 0;
+		}
+		
+	}
+	
+	protected void _po_switchToNear()
+	{
+		
+		if( !reserveToNear ) StartCoroutine( setVisibilityNearOnAndFarOffVarianceOnece() );
+		
+	}
+	
+	protected void _po_switchToFar()
+	{
+		
+		if( reserveToNear ) reserveToNear = false; else __switchToFar();
+		
+	}
+	
+	// -------------------------------
+	
+	
+	
+	
+}

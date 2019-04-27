@@ -1,0 +1,37 @@
+Shader "Custom/NoPass"
+{
+	
+		
+	SubShader
+	{
+	//	Tags {"Queue"="AlphaTest" "IgnoreProjector"="True" "RenderType"="AlphaTest"}
+		Tags { "RenderType"="Opaque" "IgnoreProjector"="True" }
+	//	LOD 200
+		
+		Pass
+	    {
+			
+		    ZWrite Off
+		    Lighting Off
+			
+			CGPROGRAM
+				#pragma only_renderers d3d9 opengl gles
+				#pragma glsl
+				#pragma vertex vert
+				#pragma fragment frag
+				
+				fixed4 vert( fixed4 vertex : POSITION ) : SV_POSITION
+				{
+					return fixed4( 0, 0, 0, 0 );
+				}
+				
+				fixed4 frag( fixed4 pos : SV_POSITION ) : COLOR
+				{
+				    return fixed4( 0, 0, 0, 0 );
+				}
+			ENDCG
+			
+	    }
+	   
+	}
+}

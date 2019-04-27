@@ -1,0 +1,25 @@
+using UnityEngine;
+using System.Collections;
+
+public class TestAction : _ActionBase
+{
+	
+	
+	override void init()
+	{
+		
+	}
+	
+	void n()
+	{
+		
+	}
+	
+	void Awake()
+	{
+		
+		physMove = n;
+		
+	}
+	
+}

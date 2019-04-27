@@ -1,0 +1,42 @@
+using UnityEngine;
+using System.Collections;
+
+public abstract class BulletBase : MonoBehaviour
+{
+	
+	public Transform	tf;
+	
+	public LandingEffectBase	landingPrefab;
+	
+	protected float		reastRange;
+	
+	protected Vector3	prePos;
+	
+	
+	public GameObject emitBullet( Vector3 pos, Quaternion rot, float range )
+	// プレハブから使用し、インスタンスを生成する。
+	{
+		var bullet = Instantiate( gameObject, pos, rot ) as GameObject;
+		
+		Destroy( bullet, 60.0f );// 念のため時間制限
+		
+		var bbase = bullet.GetComponent<BulletBase>();
+		
+		bbase.reastRange = range;
+		
+		return bullet;
+	}
+	
+	protected void rangeProcessing( float dist )
+	{
+		
+		reastRange -= dist;
+		
+		if( reastRange < 0.0f )
+		{
+			Destroy( gameObject );
+		}
+		
+	}
+	
+}

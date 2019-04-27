@@ -1,0 +1,58 @@
+using UnityEngine;
+using System.Collections;
+
+using ul = UserLayer;
+
+
+
+public class Explosion00 : LandingEffectBase
+{
+
+	
+	public float	radius;
+	public float	mainForce;
+	public float	killForce;
+	public float	hardness;
+	public float	noiseVolume;
+	
+	
+	public override void emitExplode( Vector3 pos, Quaternion rot )
+	// プレハブから使用し、インスタンスを生成する。
+	{
+		
+		var eo = Instantiate( gameObject, pos, rot ) as GameObject;
+		var ps = eo.particleSystem;
+		
+		Destroy( eo, ps.duration );
+		
+		ps.startSize = radius * 1.5f;
+		ps.startSpeed = radius * 1.5f;
+		
+	//	eo.collider.GetComponent<SphereCollider>().radius = radius;
+		
+		var cols = Physics.OverlapSphere( pos, radius, ul.notExplosionHitable );
+		
+		foreach( var other in cols )
+		{
+			
+			var rb = other.attachedRigidbody;
+			
+			if( rb )
+			{
+			//	var dir = ( other.transform.position - pos ).normalized;
+				
+				rb.AddExplosionForce( mainForce * 100.0f, pos, radius, 10.0f, ForceMode.Impulse );
+			}
+		}
+		
+	}
+	
+	/*
+	void OnEnterCollision( Collision other )
+	{
+		
+		other.rigidbody.AddForce( other.contacts[0].normal * -1.0f, ForceMode.VelocityChange );
+		
+	}
+	*/
+}

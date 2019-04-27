@@ -1,0 +1,312 @@
+﻿using UnityEngine;
+using System.Collections;
+using System.Collections.Generic;
+
+
+
+public class StructureTemplateUnit
+{
+
+	public GameObject				instance;
+
+	public _StructurePartBase2[]	parts;
+
+	public Mesh						nearMesh;
+	
+	public byte[]					triIndexToPartIdList;
+	
+	public GameObject				nearObject;
+
+}
+
+
+// *****************************************************************
+
+public class StructureTemplateHolder2 : _ObjectTemplateHolder
+// 構造物のメッシュコンバイン済み雛形インスタンスを管理する。
+{
+	
+	Dictionary< GameObject, StructureTemplateUnit >	templates;
+	
+	
+	public Shader	srcShader;
+	
+	public Shader	dstNearShader;
+
+
+	
+	public override void init()
+	{
+		clear();
+		
+		templates = new Dictionary< GameObject, StructureTemplateUnit >( 64 );
+	}
+	
+	
+	public override void clear()
+	{
+		
+		if( templates != null )
+		{
+			foreach( var t in templates.Values )
+			{
+
+				GameObject.Destroy( t.instance );
+				GameObject.Destroy( t.nearObject );
+
+				t.nearMesh.Clear();
+
+			}
+
+			templates.Clear();
+			
+			templates = null;
+		}
+		
+	}
+
+
+	public override void registFrom( _StructureBase2[] structres )
+	{
+
+		foreach( var s in structres )
+		{
+			if( !templates.ContainsKey( s.prefab ) )
+			{
+				registTemplateInstance( s.prefab );
+			}
+		}
+
+	}
+
+
+	public override void build()
+	{
+
+		packTextures();
+
+		buildTemplateInstances();
+
+	}
+
+
+	public override void attachTo( _StructureBase2[] structres )
+	{
+
+		foreach( var s in structres )
+		{
+			if( templates.ContainsKey( s.prefab ) )
+			{
+				attachTemplateInstanceTo( s );
+			}
+		}
+
+	}
+
+
+// --------------------------------------------------------------------	
+	
+	
+	void registTemplateInstance( GameObject prefab )
+	// リソースから近距離オブジェクトをインスタンス化して、ホルダーに加える。
+	{
+		
+		var templateInstance = (GameObject)Instantiate( prefab );
+		
+		templateInstance.SetActive( false );
+		
+		
+		//	Resources.UnloadAsset( prefab );
+		
+		
+		var	template	= new StructureTemplateUnit();
+		
+		template.instance	= templateInstance;
+		
+		
+		templates[ prefab ] = template;
+		
+		templateInstance.transform.parent = transform;
+		
+	}
+
+	
+	void packTextures()
+	{
+		
+		var texpacker = new TexturePacker( srcShader );
+		
+		foreach( var t in templates.Values )
+		{
+			texpacker.regist( t.instance );
+		}
+		
+		texpacker.pack();
+		
+	}
+	
+	void buildTemplateInstances()
+	// ホルダー傘下のインスタンステンプレートを加工する。
+	{
+
+		foreach( var template in templates.Values )
+		{
+
+			template.parts		= initParts( template.instance );
+			
+			template.nearMesh	= combineMesh( template.instance, template.parts );
+
+			template.triIndexToPartIdList	= buildTriangleIndexToPartIdList( template.nearMesh, template.parts );
+			
+			template.nearObject	= createNearObject( template.nearMesh, template.parts );
+
+		}
+		
+	}
+
+
+	_StructurePartBase2[] initParts( GameObject templateInstance )
+	// パーツがピースに分かれているならをれを組み上げ、その後全パーツを初期化する。
+	{
+		
+		foreach( var spfc in GetComponentsInChildren<StructurePartFromChildren>( true ) )
+		{
+			
+			spfc.build(); 
+			
+		}
+		
+		
+		var parts = templateInstance.GetComponentsInChildren<_StructurePartBase2>( true );
+		
+		var render = templateInstance.GetComponent<StructureMeshRender2>();
+
+		var tricounter	= 0;
+
+		for( var i = 0; i < parts.Length; i++ )
+		{
+
+			var	part = parts[i];
+
+			part.init( i );
+
+			part.setMeshInfo( tricounter, part.mf.sharedMesh.triangles.Length / 3 );
+
+			tricounter	+= part.triangleLength;
+
+		}
+		
+		return parts;
+		
+	}
+
+	Mesh combineMesh( GameObject templateInstance, _StructurePartBase2[] parts )
+	// 指定されたインスタンステンプレート内のパーツメッシュから、単一メッシュを作成する。
+	{
+
+		var counter	= new MeshElementsCounter();
+
+		foreach( var part in parts )
+		{
+			counter.count( part.mf.sharedMesh );
+		}
+
+		
+		var creator	= new StructreMeshCreator();
+
+		creator.alloc( ref counter );
+
+		var tfparent	= templateInstance.transform;
+
+		foreach( var part in parts )
+		{
+
+			var tfpart = part.transform;
+
+			var mt	= tfparent.worldToLocalMatrix * tfpart.localToWorldMatrix;
+
+			creator.addGeometory( part.mf.sharedMesh, part.partId, ref mt );
+
+		}
+
+		return creator.create();
+
+	}
+
+	byte[] buildTriangleIndexToPartIdList( Mesh mesh, _StructurePartBase2[] parts )
+	{
+		
+		var triLength = mesh.triangles.Length / 3;
+		
+		var triangleIndexToPartIdList	= new byte[ triLength ];
+		
+		foreach( var p in parts )
+		{
+			var end = p.triangleLength + p.startTriangle;
+			
+			for( var i = p.startTriangle; i < end; i++ )
+			{
+				
+				triangleIndexToPartIdList[ i ] = (byte)p.partId;
+				
+			}
+		}
+
+		return triangleIndexToPartIdList;
+
+	}
+
+
+	GameObject createNearObject( Mesh mesh, _StructurePartBase2[] parts )
+	// 
+	{
+
+		var near = new GameObject( "near" );
+		
+		near.SetActive( false );
+
+		near.layer	= UserLayer._bgDetail;
+
+
+		var cd	= near.AddComponent<MeshCollider>();
+		var mf	= near.AddComponent<MeshFilter>();
+		var mr	= near.AddComponent<MeshRenderer>();
+		var sr	= near.AddComponent<StructureMeshRender2>();
+
+
+		cd.sharedMesh	= mesh;
+
+
+		mf.sharedMesh	= mesh;
+
+
+		var mat	= new Material( dstNearShader );
+
+		mat.mainTexture	= parts[0].mr.sharedMaterial.mainTexture;
+
+		mr.sharedMaterial	= mat;
+
+
+		sr.initPartsVisibilityOn( parts, mr );
+
+
+		return near;
+
+	}
+	
+	
+	
+	void attachTemplateInstanceTo( _StructureBase2 structure )
+	// 遠距離用のみの構造物に、近距離用オブジェクトを追加する。
+	{
+
+		var template = templates[ structure.prefab ];
+
+		structure.attatchNear( ref template );
+		
+	}
+	
+	
+
+}
+

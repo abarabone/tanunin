@@ -1,0 +1,108 @@
+using UnityEngine;
+using System.Collections;
+
+public class District : MonoBehaviour
+{
+	
+	public Shader	srcAreaStructureShader;
+	public Shader	dstAreaStructureShader;
+
+	public Shader	srcPlotShader;
+
+
+	public TerrainFieldHolder		fields	{ get; private set; }
+	
+	
+	public void init()
+	{
+		
+		var buidings = GetComponentsInChildren<Building2>( false );
+		
+		
+		var areaTexPacker = new TexturePacker( srcAreaStructureShader );
+		
+		foreach( var building in buidings )
+		{
+			building.init();
+			
+			areaTexPacker.regist( building.gameObject );
+		}
+		
+		areaTexPacker.pack();
+		
+		foreach( var area in GetComponentsInChildren<Area>( false ) )
+		{
+			foreach( var b in area.GetComponentsInChildren<BuildingBinder2>( false ) )
+			{
+				b.init( area );
+			}
+			
+			area.build( dstAreaStructureShader );
+		}
+		
+
+
+		var buildingHolder = SystemManager.buildingHolder;
+
+		buildingHolder.init();
+
+		buildingHolder.registFrom( buidings );
+
+		buildingHolder.build();
+
+		buildingHolder.attachTo( buidings );
+
+
+
+		var roads = GetComponentsInChildren<RoadCluster>( false );
+
+		foreach( var road in roads )
+		{
+			road.buildPath();
+		}
+
+		var plots = GetComponentsInChildren<Plot2>( false );
+
+		var plotTexPacker = new TexturePacker( srcPlotShader );
+
+		foreach( var plot in plots )
+		{
+			plotTexPacker.regist( plot.gameObject );
+		}
+
+		plotTexPacker.pack();
+
+		foreach( var plot in plots )
+		{
+			plot.init();
+
+			plot.build();
+		}
+
+		
+		
+		fields	= GetComponentInChildren<TerrainFieldHolder>();
+		
+		fields.split();
+
+
+		
+	}
+	
+/*	
+	float	t;
+	
+	void Update()
+	{
+		if( t < Time.time )
+		{
+			var cs = GetComponentsInChildren<Collider>( false );
+		//	var len = 0;
+		//	foreach( var c in cs ) if( c.enabled ) len++;
+			Debug.Log( cs.Length );
+	//		Debug.Log( Building.iNearOnceCounter );
+			t = Time.time + 5.0f;
+		}
+	}
+*/	
+}

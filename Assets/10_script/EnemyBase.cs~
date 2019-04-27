@@ -1,0 +1,25 @@
+using UnityEngine;
+using System.Collections;
+
+
+
+
+
+
+
+
+
+public abstract class EnemyBase : MonoBehaviour
+{
+	public static GameObject freeGroup;
+
+	public abstract IEnumerator sleeping();
+	public abstract IEnumerator suspending();
+	public abstract IEnumerator staying();
+	
+}
+
+
+
+
+

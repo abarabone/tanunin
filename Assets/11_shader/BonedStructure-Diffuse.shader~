@@ -1,0 +1,69 @@
+
+
+Shader "Custom/BonedStructure-Diffuse"
+{
+	
+	Properties
+	{
+		_MainTex ("Base (RGB)", 2D) = "white" {}
+	}
+	
+	SubShader
+	{
+		Tags { "RenderType"="Opaque" }
+		
+		LOD 200
+		
+		   
+		CGPROGRAM
+			#pragma only_renderers d3d9 opengl gles
+			#pragma glsl
+			#pragma surface surf Lambert vertex:vert
+			
+			
+			
+			half4	r[100];
+			half4	t[100];
+			
+			half3 rot( half3 v, half4 q )
+			{
+				half3	qv = cross( v, q.xyz ) - v * q.w;
+				return v + 2.0f * cross( qv, q.xyz );
+			}
+				
+			void vert( inout appdata_full p )
+			{
+				
+				int i = p.color.a * 255;
+				
+				half3	rpos = rot( p.vertex.xyz, r[i] );
+				half4	tpos = half4( rpos, 1.0f ) - _Object2World[3] + t[i] * 2;
+				
+				p.vertex = tpos;
+				
+			}
+			
+			struct Input
+			{
+				float2 uv_MainTex;
+			};
+			
+			sampler2D _MainTex;
+			
+			void surf(
+				Input IN,
+				inout SurfaceOutput o
+			)
+			{
+				half4 c = tex2D(_MainTex, IN.uv_MainTex);
+				o.Albedo = c.rgb;
+				o.Alpha = c.a;
+			}
+			
+		ENDCG
+		
+	}
+	
+	Fallback "Custom/BonedStructure"
+	
+}

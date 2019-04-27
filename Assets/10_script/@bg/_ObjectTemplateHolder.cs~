@@ -1,0 +1,197 @@
+﻿using UnityEngine;
+using System.Collections;
+
+public abstract class _ObjectTemplateHolder : MonoBehaviour
+{
+
+	public abstract void init();
+	
+	public abstract void clear();
+
+	public abstract void registFrom( _StructureReplicaBase2[] structres );
+
+	public abstract void build();
+
+	public abstract void attachTo( _StructureReplicaBase2[] structres );
+
+}
+
+
+
+
+
+
+
+public struct NearStructureBuilder
+{
+
+	MeshFilter[]	mfs;
+
+
+
+	public _StructurePartBase2[] initParts( GameObject nearStructre )
+	// パーツがピースに分かれているならをれを組み上げ、その後全パーツを初期化する。
+	{
+
+		var pieces = nearStructre.GetComponentsInChildren<_StructurePart2FromChildrenBase>( true );
+
+		foreach( var piece in pieces )
+		{
+			
+			piece.build(); 
+			
+		}
+		
+		
+		var parts = nearStructre.GetComponentsInChildren<_StructurePartBase2>( true );
+
+		mfs	= new MeshFilter[ parts.Length ];
+
+		var tricounter	= 0;
+
+		for( var i = 0; i < parts.Length; i++ )
+		{
+
+			var	part = parts[i];
+
+			part.init( i );
+
+
+			var mf = part.GetComponent<MeshFilter>();
+			
+			mfs[ i ] = mf;
+
+
+			part.setMeshInfo( tricounter, mf.sharedMesh.triangles.Length / 3, mf.sharedMesh.bounds.size.magnitude * 0.5f );
+
+			tricounter	+= part.triangleLength;
+
+
+			part.gameObject.SetActive( false );//
+
+			var rb =  part.rigidbody;//
+
+			if( rb == null ) part.gameObject.AddComponent<Rigidbody>();//
+
+			if( mf.sharedMesh.normals == null || mf.sharedMesh.normals.Length == 0 ) mf.sharedMesh.RecalculateNormals();
+
+		}
+		
+		return parts;
+		
+	}
+
+	public Mesh combineMesh( GameObject nearStructre, _StructurePartBase2[] parts )
+	// 指定されたインスタンステンプレート内のパーツメッシュから、単一メッシュを作成する。
+	{
+
+		var counter	= new MeshElementsCounter( mfs );
+
+
+		var creator	= new StructreMeshCreator();
+
+		creator.alloc( ref counter );
+
+	//	var tfparent	= nearStructre.transform;
+		var mtParent	= nearStructre.transform.worldToLocalMatrix;
+		
+		foreach( var part in parts )
+		{
+
+			var mt	= mtParent * part.transform.localToWorldMatrix;
+
+			creator.addGeometory( mfs[part.partId].sharedMesh, part.partId, ref mt );
+
+		}
+
+		return creator.create();
+
+	}
+
+	public byte[] buildTriangleIndexToPartIdList( Mesh mesh, _StructurePartBase2[] parts )
+	{
+		
+		var triLength = mesh.triangles.Length / 3;
+		
+		var triangleIndexToPartIdList	= new byte[ triLength ];
+		
+		foreach( var part in parts )
+		{
+			var end = part.triangleLength + part.startTriangle;
+			
+			for( var i = part.startTriangle; i < end; i++ )
+			{
+				
+				triangleIndexToPartIdList[ i ] = (byte)part.partId;
+				
+			}
+		}
+
+		return triangleIndexToPartIdList;
+
+	}
+
+
+	public GameObject createNearObject( Transform tfparent, Mesh mesh, _StructurePartBase2[] parts, Shader dstNearShader )
+	{
+		
+		var near = new GameObject( "near" );
+		
+		buildNearObject( near, mesh, parts, dstNearShader );
+
+
+		var tfnear	= near.transform;
+		
+		tfnear.position	= tfparent.position;
+		
+		tfnear.transform.parent	= tfparent;
+
+
+		return near;
+		
+	}
+
+	public void buildNearObject( GameObject nearObject, Mesh mesh, _StructurePartBase2[] parts, Shader dstNearShader )
+	// 
+	{
+
+		nearObject.SetActive( false );
+
+		nearObject.layer	= UserLayer._bgDetail;
+
+
+		var cd	= nearObject.AddComponent<MeshCollider>();
+		var mf	= nearObject.AddComponent<MeshFilter>();
+		var mr	= nearObject.AddComponent<MeshRenderer>();
+		var sr	= nearObject.AddComponent<StructureMeshRender2>();
+
+
+		cd.sharedMesh	= mesh;
+
+
+		mf.sharedMesh	= mesh;
+
+
+		var mat	= new Material( dstNearShader );
+
+		mat.mainTexture	= parts[0].GetComponent<MeshRenderer>().sharedMaterial.mainTexture;
+
+		mr.sharedMaterial	= mat;
+
+
+		sr.initPartsVisibilityOn( parts, mr );
+
+	}
+	
+	
+}
+
+
+
+
+
+
+
+
+
+

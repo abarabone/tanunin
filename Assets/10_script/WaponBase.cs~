@@ -1,0 +1,22 @@
+using UnityEngine;
+using System.Collections;
+
+public abstract class WaponBase : MonoBehaviour
+{
+	
+	public GameObject	bullet;
+	
+	
+	public float	nextFireAbleTime	= 0.5f;
+	public int		maxBullets 			= 1;
+	public float	reloadTime			= 3.0f;
+	
+	
+	public abstract void mainFire();
+	
+	public abstract void subFire();
+	
+	
+	
+	
+}

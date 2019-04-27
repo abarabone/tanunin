@@ -1,0 +1,17 @@
+using UnityEngine;
+using System.Collections;
+
+public class PlotPart2UtlPoleFromChildren : _StructurePart2FromChildrenBase
+{
+
+
+	public override void build()
+	{
+
+		base.build();
+		
+		var pole = gameObject.AddComponent<PlotPart2UtlPole>();
+
+	}
+	
+}

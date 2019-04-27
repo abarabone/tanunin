@@ -1,0 +1,36 @@
+using UnityEngine;
+using System.Collections;
+
+
+
+
+public class ForceMaster : MonoBehaviour
+// 勢力を操る。
+// プレイヤーはマップ上の全敵対勢力 ( enActType.enemy + n ) を壊滅させることが目的となる。
+{
+
+	public ActivityGroup	freeGroup;
+	
+	public int	actType;
+	
+	
+	
+	
+	void Start()
+	{
+		
+	//	freeGroup = ActivityGroup.createGroup( Vector3.zero, float.PositiveInfinity, actType );
+		
+	}
+	
+	
+	void spawnGroup()
+	// グループを生成する。
+	{
+		
+		
+		
+	}
+	
+	
+}

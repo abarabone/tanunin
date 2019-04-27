@@ -1,0 +1,70 @@
+using UnityEngine;
+using System.Collections;
+
+public class BuildingBinder : MonoBehaviour
+{
+	
+	Building[]	bodys;
+	
+	Transform	tf;
+	
+	public void init( Area area )
+	{
+		bodys = GetComponentsInChildren<Building>();
+		
+		var basepos = area.transform.position;
+		
+		tf = transform;
+		
+		var prebindpos = tf.position - basepos;
+		
+		tf.position = basepos;
+		
+		foreach( var body in bodys )
+		{
+			body.tf.position += prebindpos;
+			
+			body.binder = this;
+		}
+	}
+	
+	public void bindOff( Building starter )
+	{
+		if( bodys != null )
+		{
+			
+			for( var i = bodys.Length; i-- > 0; )
+			{
+				var body = bodys[i];
+				
+				if( body != null && body != starter )// 破壊されているかチェック
+				{
+				//	body.binder = null;
+				//	body.tf.parent = tf.parent;	// ペアレント解除は子孫が多くてかなりの負荷になるのでやめ
+					body.wakeUp();
+				}
+				
+				bodys[i] = null;	
+			}
+			
+			bodys = null;
+			
+		//	Destroy( gameObject );
+		}
+		
+	}
+	
+	public void checkDestroy()
+	{
+		if( bodys == null )
+		{
+			
+			if( tf.childCount == 1 ) 
+			{
+				Destroy( gameObject );
+			}
+			
+		}
+	}
+	
+}

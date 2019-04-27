@@ -1,0 +1,39 @@
+using UnityEngine;
+using System.Collections;
+
+public class SniperLifle : _WaponBase
+{
+	
+	
+	public override void mainFire()
+	{
+		
+		if( nextFireTime <= Time.time && reastBullets > 0 )
+		{
+			
+			var laAngle = Random.insideUnitCircle * lowAccuracy;
+			
+			var pos = tfMuzzle.position;
+			var rot = tfMuzzle.rotation * Quaternion.Euler( -emitAngle + laAngle.x, laAngle.y, 0.0f );
+			
+			
+			bullet.emitBullet( pos, rot, range );
+			
+			
+			nextFireTime = Time.time + nextFireAbleTime;
+			
+			checkMagazine();
+		}
+		
+	}
+	
+	
+	public override void subFire()
+	{
+		
+		
+		
+	}
+	
+	
+}

@@ -1,0 +1,13 @@
+using UnityEngine;
+using System.Collections;
+
+public class SignalGenerator : MonoBehaviour
+{
+	
+	public float	soundValue;	// 音
+	public float	heatValue;	// 熱
+	public float	smellValue;	// 臭い
+	public float	emagValue;	// 電磁
+	public float	factQValue;	// Ｑ要素
+	
+}

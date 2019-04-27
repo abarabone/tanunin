@@ -1,0 +1,35 @@
+using UnityEngine;
+using System.Collections;
+
+public class GamePadConfigKey : _GamePadConfigKeyBase
+{
+	
+	Vector3	normalPosition;
+	
+	public Vector3	movedPosition;
+	
+	
+	
+	void Awake()
+	{
+		var tff = transform;
+		normalPosition = tff.localPosition;
+		movedPosition += tff.localPosition;
+	}
+	
+	
+	
+	public override void keyPush( bool isPush )
+	{
+		if( isPush )
+		{
+			tf.localPosition = Vector3.Lerp( tf.localPosition, movedPosition, Time.deltaTime * 20.0f );
+		}
+		else
+		{
+			tf.localPosition = Vector3.Lerp( tf.localPosition, normalPosition, Time.deltaTime * 20.0f );
+		}
+	}
+	
+	
+}

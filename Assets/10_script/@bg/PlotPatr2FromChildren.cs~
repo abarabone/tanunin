@@ -1,0 +1,18 @@
+﻿using UnityEngine;
+using System.Collections;
+
+public class PlotPart2FromChildren : _StructurePart2FromChildrenBase
+{
+
+
+	public override void build()
+	{
+
+		base.build();
+
+		gameObject.AddComponent<PlotPart2>();
+
+	}
+
+
+}

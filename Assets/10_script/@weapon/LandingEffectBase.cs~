@@ -1,0 +1,21 @@
+using UnityEngine;
+using System.Collections;
+
+public abstract class LandingEffectBase : MonoBehaviour
+{
+	
+	
+	public abstract void emitExplode( Vector3 pos, Quaternion rot );
+	
+	
+	public void emitExplode( Vector3 pos, Vector3 normal )
+	{
+		
+		var rot = Quaternion.LookRotation( normal );
+		
+		emitExplode( pos, rot );
+		
+	}
+	
+	
+}

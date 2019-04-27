@@ -1,0 +1,379 @@
+﻿using UnityEngine;
+using System.Collections;
+using System.Collections.Generic;
+
+
+//using EventMaster = MissionEventProcesser2;
+
+
+
+
+// ミッションイベントはホストがすべて管理する
+// イベントは個々のシステムイベントに置き換えられてクライアントへ送られる（ spawn は一体ずつ生成システムへ要求される、のように）
+// 外部のイベントジェネレータから渡されたものを登録して実行していく
+// イベントは _MEventUnitBase を継承して _process() メソッドをオーバーライドする
+// 条件は各ターゲットがあるものはそれへ渡されてそこで条件判定されて、成立したら返ってくる
+
+/*
+public class MissionEventProcesser2 : MonoBehaviour
+{
+	
+	static MissionEventProcesser2	entity;
+	
+	static public MEventTargetLinker2	groupMasterTargetLinker;
+	
+	
+	static int approvaledEventCount;
+	
+	static public bool hasNoEvent	{ get{ return approvaledEventCount <= 0; } }
+	
+	static public void increaseEvent()
+	{
+		approvaledEventCount++;//Debug.Log( "event " + approvaledEventCount );
+	}
+	static public void decreaseEvent()
+	{
+		approvaledEventCount--;//Debug.Log( "event " + approvaledEventCount );
+	}
+	
+	
+	void Awake()
+	{
+		
+		entity = this;
+
+
+//		groupMasterTargetLinker = new MEventTargetLinker2();
+
+//		SystemManager.groups.eventStart( groupMasterTargetLinker );
+		
+	}
+	
+	
+	
+	static public void startMEventCoroutine( IEnumerator r )
+	{
+		entity.StartCoroutine( r );
+	}
+	
+	static public void registWaitTimeCondition( _ConditionUnit2 c )
+	{
+		c.waitTime += Time.time;
+		
+		c.checkWaitTimeOnly();
+	}
+	
+	
+	
+	
+}
+
+
+
+
+
+public interface IMissionEventable2
+{
+
+
+
+}
+
+
+
+public class MEventTargetLinker2
+{
+	
+	public MEventConditionHolder2	conditions;
+	
+	public float	processedTime;	// 初期値はゼロ、ターゲットが開始するとその時刻
+	
+	public IMissionEventable2	target;
+	
+	int	dependEventRefCount;
+	
+
+}
+
+
+public abstract class _ConditionUnit2
+{
+	
+	public _ConditionUnit2	prev;
+	public _ConditionUnit2	next;
+
+	
+	protected MEventTargetLinker2	dependedLinker;
+	
+	protected _MEventUnit2	mevent;
+	
+	
+	public float	waitTime;
+	// 少なくともターゲットイベントから経過するべき時間、ターゲットイベント成立後はその Time.time + waitTime が入る
+	
+	
+	protected abstract bool _check();
+
+	public void check()
+	{
+		
+		if( _check() )
+		{//Debug.Log( "0check " + mevent);
+			
+			removeFromTargetLinker();//Debug.Log( "1check " + mevent);
+			
+			if( _checkWaitTime() )
+			{
+				processEvent();
+			}//Debug.Log( "2check " + mevent);
+			
+		}
+		
+	}
+
+	public void checkWaitTimeOnly()
+	{
+		
+		//	removeCondition();
+		
+		if( _checkWaitTime() )
+		{
+			processEvent();
+		}
+		
+	}
+	
+	bool _checkWaitTime()
+	{
+		EventMaster.increaseEvent();
+		
+		var ct = waitTime - Time.time;//Debug.Log( "check " + mevent);
+		
+		var t = (ct > 0.0f? ct: 0.0f) + mevent.waitTime;	// イベントの時間も一緒に処理してしまう
+		
+		var f = t > 0.0f;
+		
+		if( f )
+		{
+			EventMaster.startMEventCoroutine( processAfterTime(t) );
+		}//else Debug.Log( "not wait time " + mevent );
+		
+		return !f;
+	}
+	IEnumerator processAfterTime( float t )
+	{//Debug.Log( "wait time " + t + " " + mevent );
+		yield return new WaitForSeconds( t );
+		
+		processEvent();
+	}
+	
+	public void processEvent()
+	{
+		mevent.process();
+		
+		mevent = null;
+		
+		EventMaster.decreaseEvent();//Debug.Log( "processed " + mevent );
+	}
+	
+	void removeFromTargetLinker()
+	{
+		
+		if( dependedLinker != null )
+		{//Debug.Log( "remove " + this );
+			dependedLinker.conditions.remove( this );
+		}
+		
+	}
+	
+	
+	public _ConditionUnit2 applyTo( _MEventUnit2 e )
+	{
+		mevent = e;
+
+		e._refcountUp();
+
+		return this;
+	}
+
+	public _ConditionUnit2 registTo( MEventTargetLinker2 linker )
+	{
+		
+		dependedLinker = linker;
+		
+		waitTime += linker.processedTime;
+		
+		linker.conditions.AddLast( this );
+		
+		check();
+		
+		return this;
+		
+	}
+
+}
+
+public abstract class _MEventUnit2
+{
+	
+
+	public MEventTargetLinker2	holdLinker	{ get; private set; }	// 自分の生み出すターゲットリンカーを格納する	
+
+	
+	protected int	conditionCount;
+
+
+	protected enMode	conditionsMode;
+
+		public enum enMode { or = -1, and = 0 }
+
+	
+	public float	waitTime;	// 条件成立からイベント開始までの時間（処理は条件時間で一緒にしてしまう）
+	
+
+	
+	protected abstract void _process();
+	
+	public void process()
+	{
+		
+		conditionCount--;
+		
+		if( conditionCount == 0 )
+		{
+
+			_process();
+			
+		}
+		
+	}
+
+	
+	public _MEventUnit2 mode( enMode emode )
+	{
+
+		conditionsMode = emode;
+
+
+		if( conditionsMode == enMode.or )
+		{
+			
+			conditionCount = 1;
+			
+		}
+		else //if( conditionsMode == enMode.and )
+		{
+			
+			conditionCount = 0;//conditionsMode;
+			
+		}
+		
+		return this;
+	}
+
+	public void _refcountUp()
+	{
+		if( conditionsMode == enMode.and ) conditionCount++;
+	}
+
+}
+
+
+
+
+
+
+
+
+
+public struct MEventConditionHolder2
+{
+	public _ConditionUnit2	first;
+	public _ConditionUnit2	last;
+	
+	public void AddLast( _ConditionUnit2 c )
+	{
+		//	Debug.Log( "add last" );
+		
+		if( first == null ) first = c;
+		
+		c.prev = last;
+		c.next = null;
+		
+		if( last != null ) last.next = c;
+		last = c;
+	}
+	
+	public void insertPrev( _ConditionUnit2 c1, _ConditionUnit2 c2 )
+	{
+		//	Debug.Log( "insert prev" );
+		
+		if( c2 != null )
+		{
+			if( c2.prev == null ) first = c1;
+			
+			c1.prev = c2.prev;
+			c1.next = c2;
+			
+			if( c1.prev != null ) c1.prev.next = c1;
+			c1.next.prev = c1;
+		}
+		else
+			// e2 がないなら末尾登録と同じ
+		{
+			AddLast( c1 );
+		}
+	}
+	
+	public void removeFirst()
+	{
+		//	Debug.Log( "remove first" );
+		
+		if( first != null )
+		{
+			var oldfirst = first;
+			
+			if( first.next != null ) first.next.prev = null;
+			first = first.next;
+			
+			oldfirst.prev = null;// なくてもいいはずだが
+			oldfirst.next = null;
+		}
+	}
+	
+	public void remove( _ConditionUnit2 c )
+	{
+		//	Debug.Log( "remove" );
+		
+		if( c.prev == null )
+		{
+			first = c.next;
+		}
+		else
+		{
+			c.prev.next = c.next;
+		}
+		if( c.next == null )
+		{
+			last = c.prev;
+		}
+		else
+		{
+			c.next.prev = c.prev;
+		}
+		
+		c.prev = null;
+		c.next = null;
+	}
+
+}
+
+*/
+
+
+
+
+
+
+
+

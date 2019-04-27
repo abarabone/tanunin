@@ -1,0 +1,13 @@
+using UnityEngine;
+using System.Collections;
+
+public abstract class HitProcessing : MonoBehaviour
+{
+	
+	public LandingEffectBase	landing;
+	
+	
+	public abstract void struck( float damage );
+	
+	
+}

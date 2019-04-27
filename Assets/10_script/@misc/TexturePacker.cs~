@@ -1,0 +1,557 @@
+using UnityEngine;
+using System.Collections;
+using System.Collections.Generic;
+using System.Text;
+
+
+
+
+
+struct PackInfoUnit
+{
+	public PackInfoUnit( Texture2D tex )
+	{
+		texture = tex;
+		rect = new Rect();
+	}
+	
+	public Texture2D	texture;
+	public Rect			rect;
+}
+
+class PackInfo
+// テクスチャＩＤをキーとして、テクスチャとＵＶオフセットの矩形をもつ要素を登録して保管する
+{
+	
+	private Dictionary<int,PackInfoUnit>	mainTextureInfos = new Dictionary<int,PackInfoUnit>( 256 );
+	
+	
+	public void add( Texture2D tex )
+	{
+		var texId = tex.GetInstanceID();//Debug.Log(texId);
+		
+		if( !mainTextureInfos.ContainsKey(texId) )
+		{
+			
+			mainTextureInfos[texId] = new PackInfoUnit( tex );
+		//	Debug.Log( tex.name +" "+ tex.GetInstanceID() +":"+ tex.GetHashCode() );
+				
+		}
+	}
+	
+	public Rect getRect( Texture tex )
+	{
+		return mainTextureInfos[ tex.GetInstanceID() ].rect;
+	}
+	
+	
+	public Texture2D[] getTextrueArray()
+	{
+		var texs = new Texture2D[ mainTextureInfos.Count ];
+		
+		var i = 0;
+		
+		foreach( var info in mainTextureInfos.Values )
+		{
+			texs[i++] = info.texture;
+		}
+		
+		return texs;
+	}
+	
+	public void setRectArray( Rect[] rects )
+	{
+		var i = 0;
+		
+		var keys = new int[ mainTextureInfos.Count ];
+		mainTextureInfos.Keys.CopyTo( keys, 0 );
+		
+	//	foreach( var ipair in mainTextureInfos )
+		foreach( var key in keys )
+		{
+			var pinfo = new PackInfoUnit();
+			
+			pinfo.texture	= mainTextureInfos[key].texture;//ipair.Value.texture;
+			pinfo.rect		= rects[i++];
+			
+		//	mainTextureInfos[ipair.Key] = pinfo;
+			mainTextureInfos[key] = pinfo;
+		}
+	}
+	
+}
+
+
+public class TexturePacker
+// 本体
+// ゲームオブジェクト階層を登録していき、それらのもつメインマテリアルのテクスチャを一枚に統合する
+// （メインマテリアルとエフェクトマテリアルとして指定した二つのマテリアルのみ見ていく）
+// 登録されたメッシュのＵＶは修正され、各ゲームオブジェクトそれぞれのマテリアルも統一後のものに修正される
+// 登録元のゲームオブジェクトは、いくつマテリアルを持っていてもかまわない
+{
+	
+	BitBoolArray	markuv = new BitBoolArray();//( 2048 );
+	
+	PackInfo	info = new PackInfo();
+	
+	MeshOverlapChecker	olap = new MeshOverlapChecker();
+	
+	
+	Texture2D	mainTexture;
+	Shader		mainShader;
+	Shader		effectiveShader;
+
+	int			maxTextureSize;//
+	
+	MaterialsTemporary	dstmats;//
+
+	
+	public TexturePacker( Shader targetMainShader, Shader targetEffectiveShader, int dstMaxTextureSize = 2048 )
+	{
+		
+		mainTexture = new Texture2D( 0, 0 );//dstMaxTextureSize, dstMaxTextureSize );
+
+		maxTextureSize	= dstMaxTextureSize;
+
+		mainShader		= targetMainShader;
+		effectiveShader	= targetEffectiveShader;
+		
+		markuv.init( 2048 );
+
+		dstmats = new MaterialsTemporary( mainTexture, mainShader, effectiveShader );//
+
+	}
+	
+	public TexturePacker( Shader targetMainShader, int dstMaxTextureSize = 2048 )
+	{
+		
+		mainTexture = new Texture2D( 0, 0 );//dstMaxTextureSize, dstMaxTextureSize );
+		
+		maxTextureSize	= dstMaxTextureSize;
+
+		
+		mainShader		= targetMainShader;
+		
+		markuv.init( 2048 );
+		
+		dstmats = new MaterialsTemporary( mainTexture, mainShader, effectiveShader );//
+	}
+	
+	public void regist( GameObject go )
+	// ゲームオブジェクト階層から
+	// シェアードメッシュＩＤと全シェアードマテリアルのテクスチャＩＤをキーとして登録する
+	// さらに、ゲームオブジェクトのマテリアルを新規のものに差し替えておく（ちょっと苦しまぎれ）
+	// 登録階層全体で１マテリアルとする。無駄になる可能性もあるが、あんまり問題ないと思う、シェーダプロパティもキャラ・建物単位だし
+		// （↑暫定で修正してる、全体で一個になってる　あと、対象がなんのシェーダーでも mat0 にまとめるようにしてある）
+	// ちなみに楽して全部に２マテリアルを割り振ってしまうと、サブメッシュがなくても２回ドローコールされてしまう。
+	// シェーダプロパティは、先頭から最初の該当マテリアルのをコピる。
+	{
+		
+		var mrs = go.GetComponentsInChildren<MeshRenderer>( true );//false );
+		
+	//	var dstmats = new MaterialsTemporary( mainTexture, mainShader, effectiveShader );//, mrs );
+		
+		foreach( var mr in mrs )
+		{
+			
+		//	Debug.Log( mr.name );
+			regist( mr.sharedMaterials );
+			
+			
+			var mf = mr.GetComponent<MeshFilter>();
+			
+			mf.sharedMesh = olap.regist( mf.sharedMesh, mr.sharedMaterials );
+			
+			mr.sharedMaterials = dstmats.checkMaterials( mr.sharedMaterials );
+			
+		}
+		
+	}
+
+	public void registSkinned( GameObject go )
+	{
+		
+		var smrs = go.GetComponentsInChildren<SkinnedMeshRenderer>( true );//false );
+		
+	//	var dstmats = new MaterialsTemporary( mainTexture, mainShader, effectiveShader );//, smrs );
+		
+		foreach( var smr in smrs )
+		{
+			
+		//	Debug.Log( smr.name );
+			regist( smr.sharedMaterials );
+			
+			
+			smr.sharedMesh = olap.regist( smr.sharedMesh, smr.sharedMaterials );
+			
+			smr.sharedMaterials = dstmats.checkMaterials( smr.sharedMaterials );
+			
+		}
+		
+	}
+	
+	
+	void regist( Material[] mats )
+	{
+		
+		foreach( var mat in mats )
+		{
+			
+			regist( mat.mainTexture );
+			
+		}
+		
+	}
+	
+	void regist( Texture tex )
+	{
+		
+		var tex2d = tex as Texture2D;
+		
+		if( tex2d != null )
+		{
+		//	Debug.Log( tex.name );
+			info.add( tex2d );
+			
+		}
+		
+	}
+	
+	
+	
+	public void pack()
+	// テクスチャをパックし、ＵＶを修正する
+	// 登録されているシェアードメッシュ自体を修正していくので、同一メッシュへの処理の重複はない
+	// （この時メッシュ(一)を参照しているゲームオブジェクトのマテリアル(多)が取得できないが、メッシュ登録の際にすでに差し替えている）
+	{
+
+	//	var rects = mainTexture.PackTextures( info.getTextrueArray(), 0, maxTextureSize, true );
+
+		// みっぷマップ６以降の真っ黒（バグ？）回避
+		var atlas = new Texture2D( 0, 0, TextureFormat.ARGB32, false );
+		var rects = atlas.PackTextures( info.getTextrueArray(), 0, maxTextureSize, false );
+		mainTexture.Resize( atlas.width, atlas.height, TextureFormat.ARGB32, true );
+		mainTexture.SetPixels32( atlas.GetPixels32( 0 ), 0 );
+		mainTexture.Apply( true, false );
+		mainTexture.Compress( true );
+		mainTexture.Apply( false, true );
+		
+	//	Debug.Log( mainTexture.format +" "+ mainTexture.mipmapCount );
+	//	mainTexture.anisoLevel = 9;
+	//	mainTexture.mipMapBias = -0.5f;
+
+		info.setRectArray( rects );
+		
+		
+		foreach( var refs in olap.values )
+		{
+			
+			var srcmesh = refs.srcmesh;
+			var dstmesh = refs.dstmesh;
+
+			var srcMats = refs.srcmats;
+		//	Debug.Log( mesh.name +" "+ srcMats.Length );
+			
+			
+			var dstuvs = new Vector2[ srcmesh.vertexCount ];
+			markuv.reinit( srcmesh.vertexCount );
+			
+			var dstidxs	= new IndexBufferHolder( srcmesh, srcMats, mainShader, effectiveShader );
+			
+			
+			for( var i=refs.srcmesh.subMeshCount; i-->0; )
+			{
+				
+				var mat = srcMats[i];
+				
+				var srcIdxs = srcmesh.GetTriangles(i);
+				
+				if( srcIdxs.Length > 0 )
+				{
+					
+					if( mat.mainTexture != null )
+					{
+						var rect = info.getRect( mat.mainTexture );
+						
+						reuv( srcIdxs, dstuvs, srcmesh.uv, rect );
+					}
+					
+					dstidxs.copy( srcIdxs, mat );
+					
+				}
+				
+			}
+			
+			
+			
+			dstmesh.vertices	= srcmesh.vertices;
+			dstmesh.normals		= srcmesh.normals;
+			dstmesh.tangents	= srcmesh.tangents;
+			dstmesh.uv			= dstuvs;
+			dstmesh.bounds		= srcmesh.bounds;
+			dstmesh.boneWeights	= srcmesh.boneWeights;
+			dstmesh.bindposes	= srcmesh.bindposes;
+		/*	
+			if( dstmesh.normals.Length == 0 )
+			{
+				dstmesh.RecalculateNormals();
+			//	Debug.Log( "RecalculateNormals " + dstmesh.name );
+			}
+		*/	
+			if( dstidxs.effective.Length > 0 )
+			{
+				dstmesh.subMeshCount = 2;
+				dstmesh.SetTriangles( dstidxs.main, 0 );
+				dstmesh.SetTriangles( dstidxs.effective, 1 );
+			}
+			else
+			{
+				dstmesh.subMeshCount = 1;
+				dstmesh.SetTriangles( dstidxs.main, 0 );
+			}
+			
+			
+		//	dstmesh.Optimize();
+		//	Debug.Log( srcmesh.name +" : "+ dstmesh.GetInstanceID() +" "+ dstmesh.uv.Length +" "+ dstmesh.vertices.Length );
+			
+		}
+		
+		
+	}
+	
+	
+	void reuv( int[] idxs, Vector2[] dstuvs, Vector2[] uvs, Rect rect )
+	{
+			
+		foreach( var idx in idxs )
+		{
+			
+			if( !markuv[idx] )
+			{
+				
+				dstuvs[idx].x = rect.x + uvs[idx].x * rect.width;
+				dstuvs[idx].y = rect.y + uvs[idx].y * rect.height;
+				
+				markuv[idx] = true;
+			}
+			
+		}
+		
+	}
+	
+	
+}
+
+
+
+struct MaterialsTemporary
+{
+	
+	Material[]	mats1;	// マテリアルがひとつの場合
+	Material[]	mats2;	// マテリアルがふたつの場合
+		
+	
+	public MaterialsTemporary( Texture2D tex, Shader mainShader, Shader effectiveShader )//, Renderer[] srcmrs )
+	{
+		
+		mats1 = new Material[1];
+		mats1[0] = new Material( mainShader );//cloneConformMaterial( mainShader, srcmrs );
+		mats1[0].mainTexture = tex;
+		
+		if( effectiveShader )
+		{
+			mats2 = new Material[2];
+			mats2[0] = mats1[0];
+			mats2[1] = new Material( effectiveShader );//cloneConformMaterial( effectiveShader, srcmrs );
+			mats2[1].mainTexture = tex;//
+		}
+		else
+		{
+			mats2 = null;
+		}
+		
+	}
+/*	
+	static Material cloneConformMaterial( Shader target, Renderer[] srcmrs )
+	{
+		foreach( var mr in srcmrs )
+		{
+			foreach( var mat in mr.sharedMaterials )
+			{
+				if( mat.shader == target ) return new Material( mat );
+			}
+		}
+		return new Material( srcmrs[0].material );// target );
+	}
+*/	
+	public Material[] checkMaterials( Material[] srcmats )
+	// ＳＲＣマテリアル配列が effectiveShader を含んでいれば２要素のＤＳＴマテリアル配列を返す
+	{
+		
+		if( mats2 != null )
+		{
+			foreach( var mat in srcmats )
+			{
+				if( mat.shader == mats2[1].shader )
+				{
+					return mats2;
+				}
+			}
+		}
+		
+		return mats1;
+	}
+}
+
+
+
+struct MeshMaterialReferenceUnit
+{
+	public Mesh			srcmesh;
+	public Mesh			dstmesh;
+	public Material[]	srcmats;
+	
+	public MeshMaterialReferenceUnit( Mesh s, Mesh d, Material[] m )
+	{
+		srcmesh = s;
+		dstmesh = d;
+		srcmats = m;
+	}
+}
+
+class MeshOverlapChecker
+// メッシュを重複しないようにして保持する。
+// マテリアルがテクスチャを含む場合のみ登録される。メッシュＩＤとテクスチャＩＤ（マテリアル内の全て）の組をキーとする。
+// 登録する時、新しいメッシュを作成する。ここに新しいＵＶを持つメッシュを構築する。
+{
+	
+	Dictionary<string,MeshMaterialReferenceUnit>	mms	= new Dictionary<string,MeshMaterialReferenceUnit>( 256 );
+	
+	StringBuilder	sb = new StringBuilder( 11 * 17 + 16 );// １１桁×個数＋":"×(個数－１)
+	// 初期値はメッシュ１、マテリアル１６を想定
+	
+	
+	public Dictionary<string,MeshMaterialReferenceUnit>.ValueCollection values
+	{
+		get { return mms.Values; }
+	}
+	
+/*	
+	public MeshMaterialReferenceUnit getValue( Mesh mesh )
+	{
+		return mms[ mesh ];
+	}
+*/	
+	
+	public Mesh regist( Mesh mesh, Material[] mats )
+	{
+		
+		sb.Length = 0;
+		
+		sb.Append( mesh.GetInstanceID() );
+		
+		var useTexture = false;
+		
+		foreach( var mat in mats )
+		{
+			if( mat.mainTexture )
+			{
+				useTexture = true;
+				
+				sb.Append( ":" ).Append( mat.mainTexture.GetInstanceID() );//mat.GetInstanceID() );
+			}
+		}
+		
+		if( useTexture )
+		// テクスチャのある場合は新規に空メッシュを作成して登録（あとでＵＶ加工する）
+		{
+			var key = sb.ToString();
+		//	Debug.Log( mesh.name +" "+ key );
+			
+			var res = mms.ContainsKey( key );
+			
+			if( res )
+			{
+				return mms[ key ].dstmesh;
+			}
+			else
+			{
+				var dstmesh = new Mesh();
+				
+				mms.Add( key, new MeshMaterialReferenceUnit(mesh,dstmesh,mats) );//new { mesh, dstmesh, mats } );
+				
+				return dstmesh;
+			}
+		}
+		else
+		// テクスチャのない場合はソースメッシュをそのまま使い、登録しない（あとでＵＶ加工しない）
+		{
+			return mesh;
+		}
+		
+	}
+	
+}
+
+struct IndexBufferHolder
+// メインとエフェクティブ毎に、インデックス配列をとりまとめて保持する。
+{
+	
+	public int[]	main		{ get; private set; }
+	public int[]	effective	{ get; private set; }
+	
+	public int		iMain		{ get; private set; }
+	public int		iEffective	{ get; private set; }
+	
+	Shader	mainShader;
+	Shader	effectiveShader;
+	
+	
+	public IndexBufferHolder( Mesh mesh, Material[] mats, Shader mshader, Shader eshder )
+	{
+		
+		mainShader		= mshader;
+		effectiveShader	= eshder;
+		
+		var mlen = 0;
+		var elen = 0;
+		
+		for( var i=mesh.subMeshCount; i-->0; )
+		{//Debug.Log( mats[i].shader.name+":"+mats[i].shader.GetInstanceID() +" "+ mainShader.name+":"+mainShader.GetInstanceID() );
+			if( true || mainShader == null || mats[i].shader == mainShader )// 暫定で、対象が何であれ mat0 にまとめちゃう
+			{
+				mlen += mesh.GetTriangles( i ).Length;
+			}
+			else if( mats[i].shader == effectiveShader )
+			{
+				elen += mesh.GetTriangles( i ).Length;
+			}
+		}
+		
+		main		= new int[ mlen ];
+		effective	= new int[ elen ];
+		
+		iMain		= 0;
+		iEffective	= 0;
+		
+	}
+	
+	public void copy( int[] srcIdxs, Material mat )
+	{
+		
+		if( true || mainShader == null || mat.shader == mainShader )// 暫定で、対象が何であれ mat0 にまとめちゃう
+		{
+			srcIdxs.CopyTo( main, iMain );
+			iMain += srcIdxs.Length;
+		}
+		else if( mat.shader == effectiveShader )
+		{
+			srcIdxs.CopyTo( effective, iEffective );
+			iEffective += srcIdxs.Length;
+		}
+		
+	}
+	
+}
+
+

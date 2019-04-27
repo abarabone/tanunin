@@ -1,0 +1,55 @@
+using UnityEngine;
+using System.Collections;
+
+public class InsectLauncher : _WaponBase
+{
+	
+	public int	multiEmitNumber;
+	
+	public float	force;
+	
+	
+	public override void mainFire( _ActionBase act )
+	{
+		readyAtPushTrigger();
+		
+		if( nextFireTime <= Time.time && reastBullets > 0 )
+		{
+			
+			sound.PlayDelayed( 0.0f );
+			
+			var laRatio = lowAccuracy / 60.0f;	// 最大誤差を６０度と考えての割合
+			
+			for( var i=multiEmitNumber; i-->0; )
+			{
+				var laAngle = Random.insideUnitCircle * lowAccuracy;
+				
+				var pos = tfMuzzle.position;
+				var rot = tfMuzzle.rotation * Quaternion.Euler( -emitAngle + laAngle.x, laAngle.y, 0.0f );
+				
+				var bi = bullet.emitBullet( pos, rot, range, act );
+				
+				var laSpeed = force * (1.0f - laRatio) - force;
+				
+				bi.addForce( force + Random.Range(-laSpeed,laSpeed) );
+			}
+			
+			nextFireTime = Time.time + nextFireAbleTime;
+			
+			checkMagazine();
+		}
+		
+	}
+	
+	
+	public override void subFire( PcAction act )
+	{
+		
+	}
+	
+	public override void subFireOff( PcAction act )
+	{
+		
+	}
+	
+}
