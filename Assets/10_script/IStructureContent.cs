@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace Bg
+namespace ModelGeometry
 {
 	public interface IStructureContent
 	{

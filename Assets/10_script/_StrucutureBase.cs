@@ -2,10 +2,10 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace Bg
+namespace ModelGeometry
 {
 	
-	public class _Strucuture : MonoBehaviour
+	public class _StrucutureBase : MonoBehaviour, IStructure
 	{
 
 
@@ -195,10 +195,36 @@ namespace Bg
 		{
 			Destroy( gameObject );
 		}
-	
-	
 
+		public void Init()
+		{
+			throw new System.NotImplementedException();
+		}
 
+		public void Reset()
+		{
+			throw new System.NotImplementedException();
+		}
+
+		public void Build()
+		{
+			throw new System.NotImplementedException();
+		}
+
+		public void Destruct()
+		{
+			throw new System.NotImplementedException();
+		}
+
+		public void SwitchToNear()
+		{
+			throw new System.NotImplementedException();
+		}
+
+		public void SwitchToFar()
+		{
+			throw new System.NotImplementedException();
+		}
 	}
 }
 
