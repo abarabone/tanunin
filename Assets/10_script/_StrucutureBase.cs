@@ -9,20 +9,20 @@ namespace ModelGeometry
 	{
 
 
-		public Transform	tf		{ get; protected set; }
+		public Transform	Tf;
 	
 	
-		public GameObject	near	{ get; protected set; }
+		public GameObject	Near;
+		
+		public IStructurePart[] Parts;
+		
 
-		public _StructurePart3[] parts { get; protected set; }
+		//public StructureRenderer3 nearRenderer { get; protected set; }
+
+		//public StructurePallet3	colorPallets;
 
 
-		public StructureRenderer3 nearRenderer { get; protected set; }
-
-		public StructurePallet3	colorPallets;
-
-
-		public bool isReplicated { get; private set; }//
+		//public bool isReplicated { get; private set; }//
 
 
 
@@ -32,88 +32,12 @@ namespace ModelGeometry
 
 		void Awake()
 		{
-
-			deepInit();
-
+			this.Init();
+			this.Reset();
 		}
-
-
-
-
-		public virtual void deepInit()
-		{
-
-			tf = transform;
-
-			near = findPartContents();
-
-
-			var rb = GetComponent<Rigidbody>();
-
-			if( rb == null )
-			{
-
-				rb = gameObject.AddComponent<Rigidbody>();
-
-				rb.mass = 100.0f;
-
-
-				//var rb = rigidbody;
-
-				//rb.inertiaTensor = rb.inertiaTensor;//
-
-				//rb.inertiaTensorRotation = rb.inertiaTensorRotation;//
-
-			}
 		
-			rb.isKinematic = true;
 
 
-			// 極端すぎるかも？　ゆれが少なすぎて違和感はある、でもまぁ見れる
-			rb.solverIterations = 1;//
-			rb.sleepThreshold = 1.0f; //
-		
-		}
-
-
-
-		public virtual void build()
-		{
-
-			if( near != null )
-			{
-			
-				isReplicated = !tf.getComponentInDirectChildren<StructurePartContentsHolder>();//
-
-
-				var contentsTop = near.GetComponent<_StructurePartContents>();
-
-
-				var builder = contentsTop.build( tf );
-
-				near = builder.near;
-
-				parts = builder.parts;
-
-
-				nearRenderer = near.GetComponent<StructureRenderer3>();
-
-				nearRenderer.initPallet( colorPallets );
-
-
-				var hitter = GetComponent<_StructureHit3>();
-
-				hitter.init( builder );
-
-				hitter.landings = hitter.landings ?? GM.defaultLandings;
-
-			
-			
-				near.SetActive( true );//
-				switchToFar();//
-			}
-
-		}
 
 
 
@@ -122,7 +46,7 @@ namespace ModelGeometry
 
 			// near が作成されていない前提で far を探している
 
-			return tf.findWithLayerInDirectChildren( UserLayer._bgDetail ).gameObject;
+			return Tf.findWithLayerInDirectChildren( UserLayer._bgDetail ).gameObject;
 
 		}
 
@@ -131,7 +55,7 @@ namespace ModelGeometry
 		protected GameObject findPartContents()
 		{
 
-			var contents = tf.getComponentInDirectChildren<_StructurePartContents>();
+			var contents = Tf.getComponentInDirectChildren<_StructurePartContents>();
 		
 			return contents ? contents.gameObject : new GameObject( "near stab" );//tf.GetComponentInChildren<_StructurePartContents3>().gameObject;
 
@@ -169,47 +93,54 @@ namespace ModelGeometry
 
 	
 
-		public virtual void switchToNear()
-		{
-			//near.SetActive( true );
-
-			near.GetComponent<Rigidbody>().detectCollisions = true;
-			near.GetComponent<MeshRenderer>().enabled = true;
-		}
-	
-		public virtual void switchToFar()
-		{
-			//near.SetActive( false );
-
-			near.GetComponent<Rigidbody>().detectCollisions = false;
-			near.GetComponent<MeshRenderer>().enabled = false;
-		}
 
 
 
 
 
-	
-		public virtual void destruct()
-		// 破壊したい時はこれを呼ぶ
-		{
-			Destroy( gameObject );
-		}
+
 
 		public void Init()
 		{
-			throw new System.NotImplementedException();
+			
+			this.Tf = transform;
+			this.Near = findPartContents();
+
+			initRigidbody_();
+
+			return;
+
+
+			void initRigidbody_()
+			{
+				var rb = getOrCreate_();
+				
+				rb.isKinematic = true;
+				
+				// 極端すぎるかも？　ゆれが少なすぎて違和感はある、でもまぁ見れる
+				rb.solverIterations = 1;//
+				rb.sleepThreshold = 1.0f; //
+			}
+			Rigidbody getOrCreate_()
+			{
+				var rb = GetComponent<Rigidbody>();
+				if( rb != null ) return rb;
+					
+				rb = gameObject.AddComponent<Rigidbody>();
+				rb.mass = 100.0f;
+				//var rb = rigidbody;
+				//rb.inertiaTensor = rb.inertiaTensor;//
+				//rb.inertiaTensorRotation = rb.inertiaTensorRotation;//
+				return rb;
+			}
+			
 		}
 
 		public void Reset()
 		{
 			throw new System.NotImplementedException();
 		}
-
-		public void Build()
-		{
-			throw new System.NotImplementedException();
-		}
+		
 
 		public void Destruct()
 		{
@@ -224,6 +155,30 @@ namespace ModelGeometry
 		public void SwitchToFar()
 		{
 			throw new System.NotImplementedException();
+		}
+		
+	
+		public virtual void destruct()
+		// 破壊したい時はこれを呼ぶ
+		{
+			Destroy( gameObject );
+		}
+
+
+		public virtual void switchToNear()
+		{
+			//near.SetActive( true );
+
+			Near.GetComponent<Rigidbody>().detectCollisions = true;
+			Near.GetComponent<MeshRenderer>().enabled = true;
+		}
+	
+		public virtual void switchToFar()
+		{
+			//near.SetActive( false );
+
+			Near.GetComponent<Rigidbody>().detectCollisions = false;
+			Near.GetComponent<MeshRenderer>().enabled = false;
 		}
 	}
 }

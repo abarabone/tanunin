@@ -23,10 +23,10 @@ namespace ModelGeometry
 		StructureNearObjectBuilder Build( Transform tfParent );
 		
 		
-		/// <summary>
-		/// ビルドに使用したメモリとかオブジェクトとかのうち、プレイ中に不要のものは消してしまおうという魂胆。
-		/// </summary>
-		void Clean();
+		///// <summary>
+		///// ビルドに使用したメモリとかオブジェクトとかのうち、プレイ中に不要のものは消してしまおうという魂胆。
+		///// </summary>
+		//void Clean();
 		
 	}
 }

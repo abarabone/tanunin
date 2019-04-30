@@ -17,11 +17,6 @@ namespace ModelGeometry
 		/// </summary>
 		void Reset();
 		
-
-		/// <summary>
-		/// 
-		/// </summary>
-		void Build();
 		
 		/// <summary>
 		/// 破壊したい時はこれを呼ぶ
