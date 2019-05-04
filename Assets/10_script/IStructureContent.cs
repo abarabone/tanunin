@@ -7,6 +7,11 @@ namespace ModelGeometry
 	public interface IStructureContent
 	{
 		
+
+
+
+
+
 		/// <summary>
 		/// コンテンツ本体を取得する。
 		/// </summary>

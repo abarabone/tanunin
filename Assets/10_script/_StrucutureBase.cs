@@ -29,7 +29,7 @@ namespace ModelGeometry
 
 
 
-
+		
 		void Awake()
 		{
 			this.Init();
@@ -105,15 +105,14 @@ namespace ModelGeometry
 			
 			this.Tf = transform;
 			this.Near = findPartContents();
-
-			initRigidbody_();
+			
+			initRigidbody_( getOrCreateRigidBody_() );
 
 			return;
 
 
-			void initRigidbody_()
+			void initRigidbody_( Rigidbody rb )
 			{
-				var rb = getOrCreate_();
 				
 				rb.isKinematic = true;
 				
@@ -121,7 +120,7 @@ namespace ModelGeometry
 				rb.solverIterations = 1;//
 				rb.sleepThreshold = 1.0f; //
 			}
-			Rigidbody getOrCreate_()
+			Rigidbody getOrCreateRigidBody_()
 			{
 				var rb = GetComponent<Rigidbody>();
 				if( rb != null ) return rb;
