@@ -26,7 +26,37 @@ namespace ModelGeometry
 
 	}
 	
-	public class MeshUtility
+	public class MeshCombiner
+	{
+
+		public void combine( _StructurePartBase[] parts )
+		{
+
+			var qPartMesh =
+				from part in parts
+				select
+				(
+					mesh	: part.GetComponent<MeshFilter>().sharedMesh,
+					tf		: part.transform
+				)
+				;
+			var qBaseVtx = Enumerable.Range(0,1).Concat
+				(
+					qPartMesh
+						.Select( x => x.mesh.vertexCount )
+						.Scan( seed:0, (pre,cur) => pre + cur )
+				);
+
+			var qIndex =
+				from x in Enumerable.Zip( qBaseVtx, qPartMesh, (x,y)=>(baseVtx:x,partMesh:y) )
+				from index in x.partMesh.mesh.triangles
+				select index + x.baseVtx;
+
+		}
+
+	}
+
+	public static class MeshUtility
 	{
 
 		static public bool IsReverseScale( ref Matrix4x4 mt )
@@ -43,30 +73,15 @@ namespace ModelGeometry
 
 		}
 
-	}
-
-	public class MeshCombiner
-	{
-
-		public void combine( _StructurePartBase[] parts )
+		static public IEnumerable<(int i0, int i1, int i2)> AsTriangleTupple( this int[] indexes )
 		{
-
-			var qPartMesh =
-				from part in parts
-				select
-				(
-					mesh	: part.GetComponent<MeshFilter>().sharedMesh,
-					tf		: part.transform
-				)
-				;
-
-			var qIndex =
-				from pm in qPartMesh
-				select pm.
-
-
+			for( var i=0; i<indexes.Length; i+=3 )
+			{
+				yield return ( indexes[i+0], indexes[i+1], indexes[i+2] );
+			}
 		}
 
 	}
+
 }
 
