@@ -31,29 +31,44 @@ namespace ModelGeometry
 
 		public void combine( _StructurePartBase[] parts )
 		{
-
-			var qPartMesh =
-				from part in parts
-				select
-				(
-					mesh	: part.GetComponent<MeshFilter>().sharedMesh,
-					tf		: part.transform
-				)
+			var qMesh =
+				from pt in parts
+				select pt.GetComponent<MeshFilter>().sharedMesh
 				;
-			var qBaseVtx = Enumerable.Range(0,1).Concat
-				(
-					qPartMesh
-						.Select( x => x.mesh.vertexCount )
-						.Scan( seed:0, (pre,cur) => pre + cur )
-				);
+			var qTf =
+				from pt in parts
+				select pt.transform
+				;
 
-			var qIndex =
-				from x in Enumerable.Zip( qBaseVtx, qPartMesh, (x,y)=>(baseVtx:x,partMesh:y) )
-				from index in x.partMesh.mesh.triangles
-				select index + x.baseVtx;
 
 		}
+		/// <summary>
+		/// 各パーツメッシュの持つインデックスをすべて結合し、ひとつの配列にして返す。
+		/// その際各メッシュの頂点数は、次のインデックスのベースとなる。
+		/// また、マテリアル別のサブメッシュも、ひとつに統合される。
+		/// </summary>
+		int[] buildIndeices_( IEnumerable<Mesh> qMesh )
+		{
+			var qVtxCount = qMesh
+				.Select( mesh => mesh.vertexCount )
+				.Scan( seed:0, (pre,cur) => pre + cur )
+				;
+			var qBaseVertex = Enumerable.Range(0,1).Concat( qVtxCount );// 先頭に 0 を追加する。
 
+			var qIndex =
+				from xy in Enumerable.Zip( qBaseVertex, qMesh, (x,y)=>(baseVtx:x,mesh:y) )
+				from index in xy.mesh.triangles // mesh.triangles は、サブメッシュを地続きに扱う。
+				select xy.baseVtx + index;
+
+			return qIndex.ToArray();
+		}
+		Vector3[] buildVerteces_( IEnumerable<Mesh> qMesh, IEnumerable<Transform> qTf )
+		{
+			var qVertex =
+				from xy in Enumerable.Zip( qMesh, qTf, (x,y)=>(mesh:x, tf:y) )
+				select xy.tf.tran
+			return null;
+		}
 	}
 
 	public static class MeshUtility

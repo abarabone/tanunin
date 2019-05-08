@@ -16,31 +16,31 @@ namespace ModelGeometry
 			//isReplicated = !Tf.getComponentInDirectChildren<StructurePartContentsHolder>();//
 
 
-			var contentsTop = s.Near.GetComponent<IStructureContent>();
+			//var contentsTop = s.Near.GetComponent<IStructureContent>();
 
 
-			var builder = contentsTop.Build(  );
+			//var builder = contentsTop.Build(  );
 
-			Near = builder.near;
+			//Near = builder.near;
 
-			Parts = builder.parts;
-
-
-			nearRenderer = Near.GetComponent<StructureRenderer3>();
-
-			nearRenderer.initPallet( colorPallets );
+			//Parts = builder.parts;
 
 
-			var hitter = GetComponent<_StructureHit3>();
+			//nearRenderer = Near.GetComponent<StructureRenderer3>();
 
-			hitter.init( builder );
+			//nearRenderer.initPallet( colorPallets );
 
-			hitter.landings = hitter.landings ?? GM.defaultLandings;
+
+			//var hitter = GetComponent<_StructureHit3>();
+
+			//hitter.init( builder );
+
+			//hitter.landings = hitter.landings ?? GM.defaultLandings;
 
 			
 			
-			Near.SetActive( true );//
-			switchToFar();//
+			//Near.SetActive( true );//
+			//switchToFar();//
 
 
 		}
