@@ -26,28 +26,34 @@ namespace ModelGeometry
 
 	}
 	
-	public class MeshCombiner
+	public static class MeshCombiner
 	{
 
-		public void combine( _StructurePartBase[] parts )
+		static public Transform Combine( IEnumerable<MonoBehaviour> parts, Transform tfBase )
 		{
-			var qMesh =
-				from pt in parts
-				select pt.GetComponent<MeshFilter>().sharedMesh
-				;
-			var qTf =
-				from pt in parts
-				select pt.transform
-				;
+			var qMesh = parts.Select( x => x.GetComponent<MeshFilter>().sharedMesh );
+			var qTf = parts.Select( x => x.transform );
 
+			var mesh = new Mesh();
+			mesh.SetVertices( buildVerteces(qMesh,qTf,tfBase) );
+			mesh.SetTriangles( buildIndeices(qMesh), submesh:0, calculateBounds:false );
+			mesh.SetUVs( 0, qMesh.SelectMany( x => x.uv ).ToList() );
 
+			//var mat = new Material(  );
+			
+			var go = new GameObject("new");
+			go.AddComponent<MeshFilter>().sharedMesh = mesh;
+			go.AddComponent<MeshRenderer>();//.sharedMaterial = 
+
+			return go.transform;
 		}
+
 		/// <summary>
 		/// 各パーツメッシュの持つインデックスをすべて結合し、ひとつの配列にして返す。
 		/// その際各メッシュの頂点数は、次のインデックスのベースとなる。
 		/// また、マテリアル別のサブメッシュも、ひとつに統合される。
 		/// </summary>
-		int[] buildIndeices_( IEnumerable<Mesh> qMesh )
+		static List<int> buildIndeices( IEnumerable<Mesh> qMesh )
 		{
 			var qVtxCount = qMesh
 				.Select( mesh => mesh.vertexCount )
@@ -56,18 +62,26 @@ namespace ModelGeometry
 			var qBaseVertex = Enumerable.Range(0,1).Concat( qVtxCount );// 先頭に 0 を追加する。
 
 			var qIndex =
-				from xy in Enumerable.Zip( qBaseVertex, qMesh, (x,y)=>(baseVtx:x,mesh:y) )
+				from xy in Enumerable.Zip( qBaseVertex, qMesh, (x,y)=>(baseVtx:x, mesh:y) )
 				from index in xy.mesh.triangles // mesh.triangles は、サブメッシュを地続きに扱う。
 				select xy.baseVtx + index;
 
-			return qIndex.ToArray();
+			return qIndex.ToList();
 		}
-		Vector3[] buildVerteces_( IEnumerable<Mesh> qMesh, IEnumerable<Transform> qTf )
+
+		/// <summary>
+		/// 
+		/// </summary>
+		static List<Vector3> buildVerteces( IEnumerable<Mesh> qMesh, IEnumerable<Transform> qTf, Transform tfBase )
 		{
 			var qVertex =
 				from xy in Enumerable.Zip( qMesh, qTf, (x,y)=>(mesh:x, tf:y) )
-				select xy.tf.tran
-			return null;
+				from vtx in xy.mesh.vertices
+				select xy.tf.TransformPoint( vtx ) into wvtx
+				select tfBase.InverseTransformPoint( wvtx )
+				;
+			
+			return qVertex.ToList();
 		}
 	}
 
