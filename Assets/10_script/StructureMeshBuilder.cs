@@ -29,7 +29,16 @@ namespace ModelGeometry
 	public static class MeshCombiner
 	{
 
-		static public Transform Combine( IEnumerable<MonoBehaviour> parts, Transform tfBase )
+		static public GameObject AddToNewGameObject( this Mesh mesh, Material mat )
+		{
+			var go = new GameObject();
+			go.AddComponent<MeshFilter>().sharedMesh = mesh;
+			go.AddComponent<MeshRenderer>().sharedMaterial = mat;
+
+			return go;
+		}
+
+		static public Mesh BuildUnlitMeshFrom( IEnumerable<MonoBehaviour> parts, Transform tfBase )
 		{
 			var qMesh = parts.Select( x => x.GetComponent<MeshFilter>().sharedMesh );
 			var qTf = parts.Select( x => x.transform );
@@ -39,13 +48,20 @@ namespace ModelGeometry
 			mesh.SetTriangles( buildIndeices(qMesh), submesh:0, calculateBounds:false );
 			mesh.SetUVs( 0, qMesh.SelectMany( x => x.uv ).ToList() );
 
-			//var mat = new Material(  );
+			return mesh;
+		}
+		static public Mesh BuildNormalMeshFrom( IEnumerable<MonoBehaviour> parts, Transform tfBase )
+		{
+			var qMesh = parts.Select( x => x.GetComponent<MeshFilter>().sharedMesh );
+			var qTf = parts.Select( x => x.transform );
 			
-			var go = new GameObject("new");
-			go.AddComponent<MeshFilter>().sharedMesh = mesh;
-			go.AddComponent<MeshRenderer>();//.sharedMaterial = 
+			var mesh = new Mesh();
+			mesh.SetVertices( buildVerteces(qMesh,qTf,tfBase) );
+			mesh.SetNormals( buildNormals(qMesh,qTf,tfBase) );
+			mesh.SetTriangles( buildIndeices(qMesh), submesh:0, calculateBounds:false );
+			mesh.SetUVs( 0, qMesh.SelectMany( x => x.uv ).ToList() );
 
-			return go.transform;
+			return mesh;
 		}
 
 		/// <summary>
@@ -74,19 +90,55 @@ namespace ModelGeometry
 		/// </summary>
 		static List<Vector3> buildVerteces( IEnumerable<Mesh> qMesh, IEnumerable<Transform> qTf, Transform tfBase )
 		{
+			var mtBaseInv = tfBase.worldToLocalMatrix;
+
 			var qVertex =
 				from xy in Enumerable.Zip( qMesh, qTf, (x,y)=>(mesh:x, tf:y) )
+				let mt = xy.tf.localToWorldMatrix * mtBaseInv
 				from vtx in xy.mesh.vertices
-				select xy.tf.TransformPoint( vtx ) into wvtx
-				select tfBase.InverseTransformPoint( wvtx )
+				select mt.MultiplyPoint3x4( vtx )
 				;
 			
 			return qVertex.ToList();
+		}
+
+		/// <summary>
+		/// 
+		/// </summary>
+		static List<Vector3> buildNormals( IEnumerable<Mesh> qMesh, IEnumerable<Transform> qTf, Transform tfBase )
+		{
+			var mtBaseInv = tfBase.worldToLocalMatrix;
+
+			var qNormal =
+				from xy in Enumerable.Zip( qMesh, qTf, (x,y)=>(mesh:x, tf:y) )
+				let mt = xy.tf.localToWorldMatrix * mtBaseInv
+				from nm in xy.mesh.normals ?? recalculateNormals_( xy.mesh )
+				select mt.MultiplyVector( nm )
+				;
+			
+			return qNormal.ToList();
+
+			Vector3[] recalculateNormals_( Mesh mesh_ )
+			{
+				mesh_.RecalculateNormals();
+				return mesh_.normals;
+			}
 		}
 	}
 
 	public static class MeshUtility
 	{
+
+		static public Mesh ToWriteOnly( this Mesh mesh )
+		{
+			mesh.UploadMeshData( markNoLongerReadable: true );
+			return mesh;
+		}
+		static public Mesh ToDynamic( this Mesh mesh )
+		{
+			mesh.MarkDynamic();
+			return mesh;
+		}
 
 		static public bool IsReverseScale( ref Matrix4x4 mt )
 		{

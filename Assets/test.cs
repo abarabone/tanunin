@@ -5,18 +5,15 @@ using ModelGeometry;
 
 public class test : MonoBehaviour
 {
-    // Start is called before the first frame update
+	[SerializeField] Material mat;
+
     void Start()
     {
 		var parts = this.GetComponentsInChildren<test>();
-        MeshCombiner.Combine( parts, this.transform ).position = Vector3.one;
-
-		//this.gameObject.SetActive( false );
+        MeshCombiner.BuildNormalMeshFrom( parts, this.transform )
+			.ToWriteOnly()
+			.AddToNewGameObject( mat )
+			.transform.position = Vector3.one;
     }
-
-    // Update is called once per frame
-    void Update()
-    {
-        
-    }
+	
 }
