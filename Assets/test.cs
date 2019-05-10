@@ -10,8 +10,8 @@ public class test : MonoBehaviour
     void Start()
     {
 		var parts = this.GetComponentsInChildren<test>();
-        MeshCombiner.BuildNormalMeshFrom( parts, this.transform )
-			.ToWriteOnly()
+        MeshCombiner.BuildNormalMeshElements( parts, this.transform )
+			.ToMesh().ToWriteOnly()
 			.AddToNewGameObject( mat )
 			.transform.position = Vector3.one;
     }

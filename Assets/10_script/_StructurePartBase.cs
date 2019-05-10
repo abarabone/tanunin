@@ -6,6 +6,8 @@ namespace ModelGeometry
 {
 	public class _StructurePartBase : MonoBehaviour, IStructurePart
 	{
+		public int partId;
+
 		public void Build()
 		{
 			throw new System.NotImplementedException();

@@ -50,18 +50,73 @@ namespace ModelGeometry
 
 			return mesh;
 		}
-		static public Mesh BuildNormalMeshFrom( IEnumerable<MonoBehaviour> parts, Transform tfBase )
+		static public (List<Vector3> vtxs, List<int> tris, List<Vector2> uvs)
+			BuildUnlitMeshElements( IEnumerable<MonoBehaviour> parts, Transform tfBase )
 		{
-			var qMesh = parts.Select( x => x.GetComponent<MeshFilter>().sharedMesh );
-			var qTf = parts.Select( x => x.transform );
+			var (qMesh, qTf) = queryAboutMeshes( parts );
 			
+			var vtxs = buildVerteces( qMesh, qTf, tfBase );
+			var tris = buildIndeices( qMesh );
+			var uvs = qMesh.SelectMany( x => x.uv ).ToList();
+
+			return (vtxs, tris, uvs);
+		}
+		static public (List<Vector3> vtxs, List<Vector3> nms, List<int> tris, List<Vector2> uvs)
+			BuildNormalMeshElements( IEnumerable<MonoBehaviour> parts, Transform tfBase )
+		{
+			var (qMesh, qTf) = queryAboutMeshes( parts );
+			
+			var vtxs = buildVerteces( qMesh, qTf, tfBase );
+			var nms = buildNormals( qMesh, qTf, tfBase );
+			var tris = buildIndeices( qMesh );
+			var uvs = qMesh.SelectMany( x => x.uv ).ToList();
+
+			return (vtxs, nms, tris, uvs);
+		}
+
+		static public (List<Vector3> vtxs, List<Vector3> nms, List<int> tris, List<Vector2> uvs, List<Color32> cols)
+			BuildStructureWithPalletMeshElements( IEnumerable<_StructurePartBase> parts, Transform tfBase )
+		{
+			var (qMesh, qTf) = queryAboutMeshes( parts );
+			
+			var vtxs = buildVerteces( qMesh, qTf, tfBase );
+			var nms = buildNormals( qMesh, qTf, tfBase );
+			var tris = buildIndeices( qMesh );
+			var uvs = qMesh.SelectMany( x => x.uv ).ToList();
+
+			var qPartId = from pt in parts select pt.partId;
+			var qMatArray = from pt in parts select pt.GetComponent<MeshRenderer>()?.sharedMaterials;
+
+			var qPid = queryStructureIndecies( qMesh, qPartId );
+			var qPallets = queryePallets( qMesh, qMatArray );
+			var qPidPallet =
+				from xy in Enumerable.Zip( qPid, qPallets, (x,y)=>(pid:x, pallet:y) )
+				select new Color32( r:(byte)xy.pid.int4Index, g:(byte)xy.pid.memberIndex, b:(byte)xy.pid.bitIndex, a:(byte)xy.pallet )
+				;
+
+			return (vtxs, nms, tris, uvs, qPidPallet.ToList() );
+		}
+		static public Mesh ToMesh( this (List<Vector3> vtxs, List<Vector3> nms, List<int> tris, List<Vector2> uvs, List<Color32> cols) e )
+		{
 			var mesh = new Mesh();
-			mesh.SetVertices( buildVerteces(qMesh,qTf,tfBase) );
-			mesh.SetNormals( buildNormals(qMesh,qTf,tfBase) );
-			mesh.SetTriangles( buildIndeices(qMesh), submesh:0, calculateBounds:false );
-			mesh.SetUVs( 0, qMesh.SelectMany( x => x.uv ).ToList() );
+			mesh.SetVertices( e.vtxs );
+			mesh.SetTriangles( e.tris, submesh:0, calculateBounds:false );
+			mesh.SetUVs( 0, e.uvs );
 
 			return mesh;
+		}
+
+		static ( IEnumerable<Mesh> qMesh, IEnumerable<Transform> qTf )
+			queryAboutMeshes( IEnumerable<MonoBehaviour> parts )
+		{
+			var qMesh =
+				from pt in parts
+				select pt.GetComponent<MeshFilter>()?.sharedMesh ?? pt.GetComponent<SkinnedMeshRenderer>()?.sharedMesh
+				;
+
+			var qTf = from pt in parts select pt.transform;
+
+			return (qMesh, qTf);
 		}
 
 		/// <summary>
@@ -123,6 +178,33 @@ namespace ModelGeometry
 				mesh_.RecalculateNormals();
 				return mesh_.normals;
 			}
+		}
+
+		static IEnumerable<(int int4Index, int memberIndex, int bitIndex)>
+			queryStructureIndecies( IEnumerable<Mesh> qMesh, IEnumerable<int> qPartId )
+		{
+			var qIndex =
+				from xy in Enumerable.Zip( qMesh, qPartId, (x,y)=>(mesh:x, partId:y) )
+				select (
+					int4Index:		xy.partId >> 5 >>2,
+					memberIndex:	xy.partId >> 5 & 0b_11,	// 0 ~ 3
+					bitIndex:		xy.partId & 0b_1_1111	// 0 ~ 31
+				);
+
+			return qIndex;
+		}
+		static IEnumerable<(int palletIndex)>
+			queryePallets( IEnumerable<Mesh> qMesh, IEnumerable<Material[]> qMatArray )
+		{
+			var matToIndexDict = qMatArray
+				.SelectMany( mat => mat )
+				.Distinct()
+				.Select( (mat,i) => (mat,i) )
+				.ToDictionary( x => x.mat, x => x.i )
+				;
+			var qPallet = ;
+
+			return qPallet;
 		}
 	}
 
