@@ -26,6 +26,31 @@ namespace ModelGeometry
 
 	}
 	
+	/// <summary>
+	/// 並列に作成することを考えて、各要素を Mesh と独立させる。
+	/// </summary>
+	public struct MeshElements
+	{
+		public List<Vector3>	Vertecies;
+		public List<Vector3>	Normals;
+		public List<Vector2>	Uvs;
+		public List<int>		Indecies;
+		public List<Vector3>	Tangents;
+		public List<Color32>	Colors;
+
+		public Mesh CreateUnlitMesh()
+		{
+			var mesh = new Mesh();
+			if( this.Vertecies != null ) mesh.SetVertices( this.Vertecies );
+			if( this.Normals != null ) mesh.SetNormals( this.Normals );
+			if( this.Uvs != null ) mesh.SetUVs( 0, this.Uvs );
+			if( this.Colors != null ) mesh.SetColors( this.Colors );
+			if( this.Indecies != null ) mesh.SetTriangles( this.Indecies, submesh:0, calculateBounds:false );
+
+			return mesh;
+		}
+	}
+
 	public static class MeshCombiner
 	{
 
@@ -50,6 +75,7 @@ namespace ModelGeometry
 
 			return mesh;
 		}
+
 		static public (List<Vector3> vtxs, List<int> tris, List<Vector2> uvs)
 			BuildUnlitMeshElements( IEnumerable<MonoBehaviour> parts, Transform tfBase )
 		{
