@@ -51,17 +51,170 @@ namespace ModelGeometry
 		}
 	}
 
+
+
 	public static class MeshCombiner
 	{
 
-		static public GameObject AddToNewGameObject( this Mesh mesh, Material mat )
+		static public MeshElements BuildUnlitMeshElements( IEnumerable<MonoBehaviour> parts, Transform tfBase )
 		{
-			var go = new GameObject();
-			go.AddComponent<MeshFilter>().sharedMesh = mesh;
-			go.AddComponent<MeshRenderer>().sharedMaterial = mat;
-
-			return go;
+			var (qMesh, qTf) = queryAboutMeshes( parts );
+			
+			return new MeshElements
+			{
+				Vertecies = buildVerteces( qMesh, qTf, tfBase ),
+				Uvs = qMesh.SelectMany( x => x.uv ).ToList(),
+				Indecies = buildIndeices( qMesh ),
+			};
 		}
+		static public MeshElements BuildNormalMeshElements( IEnumerable<MonoBehaviour> parts, Transform tfBase )
+		{
+			var (qMesh, qTf) = queryAboutMeshes( parts );
+			
+			return new MeshElements
+			{
+				Vertecies = buildVerteces( qMesh, qTf, tfBase ),
+				Uvs = qMesh.SelectMany( x => x.uv ).ToList(),
+				Normals = buildNormals( qMesh, qTf, tfBase ),
+				Indecies = buildIndeices( qMesh ),
+			};
+		}
+
+		static public MeshElements
+			BuildStructureWithPalletMeshElements( IEnumerable<_StructurePartBase> parts, Transform tfBase )
+		{
+			var (qMesh, qTf) = queryAboutMeshes( parts );
+			
+			var qPartId = from pt in parts select pt.partId;
+			var qMatArray = from pt in parts select pt.GetComponent<MeshRenderer>()?.sharedMaterials;
+
+			var qPid = queryStructureIndecies( qMesh, qPartId );
+			var qPallets = queryePallets( qMesh, qMatArray );
+			var qPidPallet =
+				from xy in Enumerable.Zip( qPid, qPallets, (x,y)=>(pid:x, pallet:y) )
+				select new Color32
+				(
+					r:	(byte)xy.pid.int4Index, 
+					g:	(byte)xy.pid.memberIndex, 
+					b:	(byte)xy.pid.bitIndex, 
+					a:	(byte)xy.pallet
+				);
+			
+			return new MeshElements
+			{
+				Vertecies = buildVerteces( qMesh, qTf, tfBase ),
+				Uvs = qMesh.SelectMany( x => x.uv ).ToList(),
+				Normals = buildNormals( qMesh, qTf, tfBase ),
+				Indecies = buildIndeices( qMesh ),
+				Colors = qPidPallet.ToList(),
+			};
+		}
+
+		static ( IEnumerable<Mesh> qMesh, IEnumerable<Transform> qTf )
+			queryAboutMeshes( IEnumerable<MonoBehaviour> parts )
+		{
+			var qMesh =
+				from pt in parts
+				select pt.GetComponent<MeshFilter>()?.sharedMesh ?? pt.GetComponent<SkinnedMeshRenderer>()?.sharedMesh
+				;
+
+			var qTf = from pt in parts select pt.transform;
+
+			return (qMesh, qTf);
+		}
+
+		/// <summary>
+		/// 各パーツメッシュの持つインデックスをすべて結合し、ひとつの配列にして返す。
+		/// その際各メッシュの頂点数は、次のインデックスのベースとなる。
+		/// また、マテリアル別のサブメッシュも、ひとつに統合される。
+		/// </summary>
+		static List<int> buildIndeices( IEnumerable<Mesh> qMesh )
+		{
+			var qVtxCount = qMesh
+				.Select( mesh => mesh.vertexCount )
+				.Scan( seed:0, (pre,cur) => pre + cur )
+				;
+			var qBaseVertex = Enumerable.Range(0,1).Concat( qVtxCount );// 先頭に 0 を追加する。
+
+			var qIndex =
+				from xy in Enumerable.Zip( qBaseVertex, qMesh, (x,y)=>(baseVtx:x, mesh:y) )
+				from index in xy.mesh.triangles // mesh.triangles は、サブメッシュを地続きに扱う。
+				select xy.baseVtx + index;
+
+			return qIndex.ToList();
+		}
+
+		/// <summary>
+		/// 
+		/// </summary>
+		static List<Vector3> buildVerteces( IEnumerable<Mesh> qMesh, IEnumerable<Transform> qTf, Transform tfBase )
+		{
+			var mtBaseInv = tfBase.worldToLocalMatrix;
+
+			var qVertex =
+				from xy in Enumerable.Zip( qMesh, qTf, (x,y)=>(mesh:x, tf:y) )
+				let mt = xy.tf.localToWorldMatrix * mtBaseInv
+				from vtx in xy.mesh.vertices
+				select mt.MultiplyPoint3x4( vtx )
+				;
+			
+			return qVertex.ToList();
+		}
+
+		/// <summary>
+		/// 
+		/// </summary>
+		static List<Vector3> buildNormals( IEnumerable<Mesh> qMesh, IEnumerable<Transform> qTf, Transform tfBase )
+		{
+			var mtBaseInv = tfBase.worldToLocalMatrix;
+
+			var qNormal =
+				from xy in Enumerable.Zip( qMesh, qTf, (x,y)=>(mesh:x, tf:y) )
+				let mt = xy.tf.localToWorldMatrix * mtBaseInv
+				from nm in xy.mesh.normals ?? recalculateNormals_( xy.mesh )
+				select mt.MultiplyVector( nm )
+				;
+			
+			return qNormal.ToList();
+
+			Vector3[] recalculateNormals_( Mesh mesh_ )
+			{
+				mesh_.RecalculateNormals();
+				return mesh_.normals;
+			}
+		}
+
+		static IEnumerable<(int int4Index, int memberIndex, int bitIndex)>
+			queryStructureIndecies( IEnumerable<Mesh> qMesh, IEnumerable<int> qPartId )
+		{
+			var qIndex =
+				from xy in Enumerable.Zip( qMesh, qPartId, (x,y)=>(mesh:x, partId:y) )
+				select (
+					int4Index:		xy.partId >> 5 >>2,
+					memberIndex:	xy.partId >> 5 & 0b_11,	// 0 ~ 3
+					bitIndex:		xy.partId & 0b_1_1111	// 0 ~ 31
+				);
+
+			return qIndex;
+		}
+		static IEnumerable<int>
+			queryePallets( IEnumerable<Mesh> qMesh, IEnumerable<Material[]> qMatArray )
+		{
+			var matToIndexDict = qMatArray
+				.SelectMany( mat => mat )
+				.Distinct()
+				.Select( (mat,i) => (mat,i) )
+				.ToDictionary( x => x.mat, x => x.i )
+				;
+			//var qPallet = null;
+
+			return new int [0];
+		}
+	}
+	
+	public static class MeshCombiner2
+	{
+
 
 		static public Mesh BuildUnlitMeshFrom( IEnumerable<MonoBehaviour> parts, Transform tfBase )
 		{
@@ -117,8 +270,7 @@ namespace ModelGeometry
 			var qPallets = queryePallets( qMesh, qMatArray );
 			var qPidPallet =
 				from xy in Enumerable.Zip( qPid, qPallets, (x,y)=>(pid:x, pallet:y) )
-				select new Color32( r:(byte)xy.pid.int4Index, g:(byte)xy.pid.memberIndex, b:(byte)xy.pid.bitIndex, a:(byte)xy.pallet )
-				;
+				select new Color32( r:(byte)xy.pid.int4Index, g:(byte)xy.pid.memberIndex, b:(byte)xy.pid.bitIndex, a:(byte)xy.pallet );
 
 			return (vtxs, nms, tris, uvs, qPidPallet.ToList() );
 		}
@@ -219,7 +371,7 @@ namespace ModelGeometry
 
 			return qIndex;
 		}
-		static IEnumerable<(int palletIndex)>
+		static IEnumerable<int>
 			queryePallets( IEnumerable<Mesh> qMesh, IEnumerable<Material[]> qMatArray )
 		{
 			var matToIndexDict = qMatArray
@@ -228,14 +380,23 @@ namespace ModelGeometry
 				.Select( (mat,i) => (mat,i) )
 				.ToDictionary( x => x.mat, x => x.i )
 				;
-			var qPallet = ;
+			//var qPallet = null;
 
-			return qPallet;
+			return new int [0];
 		}
 	}
 
 	public static class MeshUtility
 	{
+		
+		static public GameObject AddToNewGameObject( this Mesh mesh, Material mat )
+		{
+			var go = new GameObject();
+			go.AddComponent<MeshFilter>().sharedMesh = mesh;
+			go.AddComponent<MeshRenderer>().sharedMaterial = mat;
+
+			return go;
+		}
 
 		static public Mesh ToWriteOnly( this Mesh mesh )
 		{

@@ -11,7 +11,7 @@ public class test : MonoBehaviour
     {
 		var parts = this.GetComponentsInChildren<test>();
         MeshCombiner.BuildNormalMeshElements( parts, this.transform )
-			.ToMesh().ToWriteOnly()
+			.CreateUnlitMesh().ToWriteOnly()
 			.AddToNewGameObject( mat )
 			.transform.position = Vector3.one;
     }
