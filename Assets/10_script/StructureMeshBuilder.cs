@@ -58,38 +58,39 @@ namespace ModelGeometry
 
 		static public MeshElements BuildUnlitMeshElements( IEnumerable<MonoBehaviour> parts, Transform tfBase )
 		{
-			var (qMesh, qTf) = queryAboutMeshes( parts );
+			var (qMesh, qTf) = QueryUtility.QueryAboutMeshesEveryObjects( parts );
 			
 			return new MeshElements
 			{
-				Vertecies = buildVerteces( qMesh, qTf, tfBase ),
+				Vertecies = ConvertUtility.BuildVerteces( qMesh, qTf, tfBase ),
 				Uvs = qMesh.SelectMany( x => x.uv ).ToList(),
-				Indecies = buildIndeices( qMesh ),
+				Indecies = ConvertUtility.BuildIndeices( qMesh, qTf ),
 			};
 		}
+
 		static public MeshElements BuildNormalMeshElements( IEnumerable<MonoBehaviour> parts, Transform tfBase )
 		{
-			var (qMesh, qTf) = queryAboutMeshes( parts );
+			var (qMesh, qTf) = QueryUtility.QueryAboutMeshesEveryObjects( parts );
 			
 			return new MeshElements
 			{
-				Vertecies = buildVerteces( qMesh, qTf, tfBase ),
+				Vertecies = ConvertUtility.BuildVerteces( qMesh, qTf, tfBase ),
 				Uvs = qMesh.SelectMany( x => x.uv ).ToList(),
-				Normals = buildNormals( qMesh, qTf, tfBase ),
-				Indecies = buildIndeices( qMesh ),
+				Normals = ConvertUtility.BuildNormals( qMesh, qTf, tfBase ),
+				Indecies = ConvertUtility.BuildIndeices( qMesh, qTf ),
 			};
 		}
 
 		static public MeshElements
 			BuildStructureWithPalletMeshElements( IEnumerable<_StructurePartBase> parts, Transform tfBase )
 		{
-			var (qMesh, qTf) = queryAboutMeshes( parts );
+			var (qMesh, qTf) = QueryUtility.QueryAboutMeshesEveryObjects( parts );
 			
 			var qPartId = from pt in parts select pt.partId;
 			var qMatArray = from pt in parts select pt.GetComponent<MeshRenderer>()?.sharedMaterials;
 
-			var qPid = queryStructureIndecies( qMesh, qPartId );
-			var qPallets = queryePallets( qMesh, qMatArray );
+			var qPid = QueryUtility.QueryStructureIndeciesEveryVertices( qMesh, qPartId );
+			var qPallets = QueryUtility.QueryePalletsEveryVertices( qMesh, qMatArray );
 			var qPidPallet =
 				from xy in Enumerable.Zip( qPid, qPallets, (x,y)=>(pid:x, pallet:y) )
 				select new Color32
@@ -102,290 +103,182 @@ namespace ModelGeometry
 			
 			return new MeshElements
 			{
-				Vertecies = buildVerteces( qMesh, qTf, tfBase ),
+				Vertecies = ConvertUtility.BuildVerteces( qMesh, qTf, tfBase ),
 				Uvs = qMesh.SelectMany( x => x.uv ).ToList(),
-				Normals = buildNormals( qMesh, qTf, tfBase ),
-				Indecies = buildIndeices( qMesh ),
+				Normals = ConvertUtility.BuildNormals( qMesh, qTf, tfBase ),
+				Indecies = ConvertUtility.BuildIndeices( qMesh, qTf ),
 				Colors = qPidPallet.ToList(),
 			};
 		}
 
-		static ( IEnumerable<Mesh> qMesh, IEnumerable<Transform> qTf )
-			queryAboutMeshes( IEnumerable<MonoBehaviour> parts )
-		{
-			var qMesh =
-				from pt in parts
-				select pt.GetComponent<MeshFilter>()?.sharedMesh ?? pt.GetComponent<SkinnedMeshRenderer>()?.sharedMesh
-				;
-
-			var qTf = from pt in parts select pt.transform;
-
-			return (qMesh, qTf);
-		}
 
 		/// <summary>
-		/// 各パーツメッシュの持つインデックスをすべて結合し、ひとつの配列にして返す。
-		/// その際各メッシュの頂点数は、次のインデックスのベースとなる。
-		/// また、マテリアル別のサブメッシュも、ひとつに統合される。
+		/// メッシュ各要素（頂点、ＵＶ、インデックスなど）ごとのコンバートを行い、list<> につめて返す。
 		/// </summary>
-		static List<int> buildIndeices( IEnumerable<Mesh> qMesh )
+		static class ConvertUtility
 		{
-			var qVtxCount = qMesh
-				.Select( mesh => mesh.vertexCount )
-				.Scan( seed:0, (pre,cur) => pre + cur )
-				;
-			var qBaseVertex = Enumerable.Range(0,1).Concat( qVtxCount );// 先頭に 0 を追加する。
-
-			var qIndex =
-				from xy in Enumerable.Zip( qBaseVertex, qMesh, (x,y)=>(baseVtx:x, mesh:y) )
-				from index in xy.mesh.triangles // mesh.triangles は、サブメッシュを地続きに扱う。
-				select xy.baseVtx + index;
-
-			return qIndex.ToList();
-		}
-
-		/// <summary>
-		/// 
-		/// </summary>
-		static List<Vector3> buildVerteces( IEnumerable<Mesh> qMesh, IEnumerable<Transform> qTf, Transform tfBase )
-		{
-			var mtBaseInv = tfBase.worldToLocalMatrix;
-
-			var qVertex =
-				from xy in Enumerable.Zip( qMesh, qTf, (x,y)=>(mesh:x, tf:y) )
-				let mt = xy.tf.localToWorldMatrix * mtBaseInv
-				from vtx in xy.mesh.vertices
-				select mt.MultiplyPoint3x4( vtx )
-				;
-			
-			return qVertex.ToList();
-		}
-
-		/// <summary>
-		/// 
-		/// </summary>
-		static List<Vector3> buildNormals( IEnumerable<Mesh> qMesh, IEnumerable<Transform> qTf, Transform tfBase )
-		{
-			var mtBaseInv = tfBase.worldToLocalMatrix;
-
-			var qNormal =
-				from xy in Enumerable.Zip( qMesh, qTf, (x,y)=>(mesh:x, tf:y) )
-				let mt = xy.tf.localToWorldMatrix * mtBaseInv
-				from nm in xy.mesh.normals ?? recalculateNormals_( xy.mesh )
-				select mt.MultiplyVector( nm )
-				;
-			
-			return qNormal.ToList();
-
-			Vector3[] recalculateNormals_( Mesh mesh_ )
+			/// <summary>
+			/// 
+			/// </summary>
+			public static List<Vector3> BuildVerteces( IEnumerable<Mesh> qMesh, IEnumerable<Transform> qTf, Transform tfBase )
 			{
-				mesh_.RecalculateNormals();
-				return mesh_.normals;
+				var mtBaseInv = tfBase.worldToLocalMatrix;
+
+				var qVertex =
+					from xy in Enumerable.Zip( qMesh, qTf, (x,y)=>(mesh:x, tf:y) )
+					let mt = xy.tf.localToWorldMatrix * mtBaseInv
+					from vtx in xy.mesh.vertices
+					select mt.MultiplyPoint3x4( vtx )
+					;
+			
+				return qVertex.ToList();
+			}
+
+			/// <summary>
+			/// 
+			/// </summary>
+			public static List<Vector3> BuildNormals( IEnumerable<Mesh> qMesh, IEnumerable<Transform> qTf, Transform tfBase )
+			{
+				var mtBaseInv = tfBase.worldToLocalMatrix;
+
+				var qNormal =
+					from xy in Enumerable.Zip( qMesh, qTf, (x,y)=>(mesh:x, tf:y) )
+					let mt = xy.tf.localToWorldMatrix * mtBaseInv
+					from nm in xy.mesh.normals ?? recalculateNormals_( xy.mesh )
+					select mt.MultiplyVector( nm )
+					;
+			
+				return qNormal.ToList();
+
+				Vector3[] recalculateNormals_( Mesh mesh_ )
+				{
+					mesh_.RecalculateNormals();
+					return mesh_.normals;
+				}
+			}
+			
+			/// <summary>
+			/// 各パーツメッシュの持つインデックスをすべて結合し、ひとつの配列にして返す。
+			/// その際各メッシュの頂点数は、次のインデックスのベースとなる。
+			/// また、マテリアル別のサブメッシュも、ひとつに統合される。
+			/// </summary>
+			public static List<int> BuildIndeices( IEnumerable<Mesh> qMesh, IEnumerable<Transform> qTf )
+			{
+				var qVtxCount = qMesh
+					.Select( mesh => mesh.vertexCount )
+					.Scan( seed:0, (pre,cur) => pre + cur )
+					;
+				var qBaseVertex = Enumerable.Range(0,1).Concat( qVtxCount );// 先頭に 0 を追加する。
+
+				var qIndex =
+					from xyz in qMesh
+						.Zip( qTf, (x,y)=>(mesh:x, tf:y) )
+						.Zip( qBaseVertex, (xy,z)=>(xy.mesh, xy.tf, baseVtx:z) )
+					from index in isReverseScale_( xyz.tf )// mesh.triangles は、サブメッシュを地続きに扱う。
+						? reverseEvery3_(xyz.mesh.triangles) 
+						: xyz.mesh.triangles
+					select xyz.baseVtx + index;
+
+				return qIndex.ToList();
+
+
+				bool isReverseScale_( Transform tf )
+				{
+					//var up = Vector3.Cross( mt.GetRow( 0 ), mt.GetRow( 2 ) );
+					//return Vector3.Dot( up, mt.GetRow( 1 ) ) > 0.0f;
+					var scl = tf.lossyScale;
+					return scl.x * scl.y * scl.z < 0.0f;
+				}
+
+				IEnumerable<int> reverseEvery3_( IEnumerable<int> indecies_ )
+				{
+					using( var e = indecies_.GetEnumerator() )
+					{
+						while( e.MoveNext() )
+						{
+							var i0 = e.Current; e.MoveNext();
+							var i1 = e.Current; e.MoveNext();
+							var i2 = e.Current;
+							yield return i0;
+							yield return i2;
+							yield return i1;
+						}
+					}
+				}
 			}
 		}
-
-		static IEnumerable<(int int4Index, int memberIndex, int bitIndex)>
-			queryStructureIndecies( IEnumerable<Mesh> qMesh, IEnumerable<int> qPartId )
+		
+		/// <summary>
+		/// 
+		/// </summary>
+		static class QueryUtility
 		{
-			var qIndex =
-				from xy in Enumerable.Zip( qMesh, qPartId, (x,y)=>(mesh:x, partId:y) )
-				select (
-					int4Index:		xy.partId >> 5 >>2,
-					memberIndex:	xy.partId >> 5 & 0b_11,	// 0 ~ 3
-					bitIndex:		xy.partId & 0b_1_1111	// 0 ~ 31
-				);
+			/// <summary>
+			/// 
+			/// </summary>
+			public static ( IEnumerable<Mesh> qMesh, IEnumerable<Transform> qTf )
+				QueryAboutMeshesEveryObjects( IEnumerable<MonoBehaviour> parts )
+			{
+				var qMesh =
+					from pt in parts
+					select pt.GetComponent<MeshFilter>()?.sharedMesh ?? pt.GetComponent<SkinnedMeshRenderer>()?.sharedMesh
+					;
 
-			return qIndex;
-		}
-		static IEnumerable<int>
-			queryePallets( IEnumerable<Mesh> qMesh, IEnumerable<Material[]> qMatArray )
-		{
-			var matToIndexDict = qMatArray
-				.SelectMany( mat => mat )
-				.Distinct()
-				.Select( (mat,i) => (mat,i) )
-				.ToDictionary( x => x.mat, x => x.i )
-				;
-			//var qPallet = null;
+				var qTf = from pt in parts select pt.transform;
 
-			return new int [0];
+				return (qMesh, qTf);
+			}
+
+			/// <summary>
+			/// 
+			/// </summary>
+			public static IEnumerable<(int int4Index, int memberIndex, int bitIndex)>
+				QueryStructureIndeciesEveryVertices( IEnumerable<Mesh> qMesh, IEnumerable<int> qPartId )
+			{
+				var qIndex =
+					from pid in qPartId
+					from vtx in qMesh
+					select (
+						int4Index:		pid >> 5 >>2,
+						memberIndex:	pid >> 5 & 0b_11,	// 0 ~ 3
+						bitIndex:		pid & 0b_1_1111		// 0 ~ 31
+					);
+
+				return qIndex;
+			}
+
+			/// <summary>
+			/// マテリアル配列と、頂点ごとの pallet index のＬＩＮＱクエリを返す。
+			/// ・
+			/// ・マテリアルの index は、トップレベルの GameObject 以下からすべて取得して採番する。
+			/// 　（渡された qMesh と qMatArray の対象がそうなっていること）
+			/// </summary>
+			public static (IEnumerable<Material>, IEnumerable<int>)
+				QueryePalletsEveryVertices( IEnumerable<Mesh> qMesh, IEnumerable<Material[]> qMatArray )
+			{
+				var matToIndexDict = qMatArray
+					.SelectMany( mat => mat )
+					.Distinct()
+					.Select( (mat,i) => (mat,i) )
+					.ToDictionary( x => x.mat, x => x.i )
+					;
+
+				var qIndicesPerSubMeshes =
+					from xy in Enumerable.Zip( qMesh, qMatArray, (x,y)=>(mesh:x, mats:y) )
+					from imat in Enumerable.Range( 0, xy.mesh.subMeshCount )
+					select xy.mesh.GetTriangles( imat, applyBaseVertex:true )
+					;
+					
+				var q =
+					from mesh in qMesh
+					from vtx in mesh.vertices
+					from idx in qIndicesPerSubMeshes.Distinct()
+
+				return new int [0];
+			}
 		}
 	}
 	
-	public static class MeshCombiner2
-	{
-
-
-		static public Mesh BuildUnlitMeshFrom( IEnumerable<MonoBehaviour> parts, Transform tfBase )
-		{
-			var qMesh = parts.Select( x => x.GetComponent<MeshFilter>().sharedMesh );
-			var qTf = parts.Select( x => x.transform );
-
-			var mesh = new Mesh();
-			mesh.SetVertices( buildVerteces(qMesh,qTf,tfBase) );
-			mesh.SetTriangles( buildIndeices(qMesh), submesh:0, calculateBounds:false );
-			mesh.SetUVs( 0, qMesh.SelectMany( x => x.uv ).ToList() );
-
-			return mesh;
-		}
-
-		static public (List<Vector3> vtxs, List<int> tris, List<Vector2> uvs)
-			BuildUnlitMeshElements( IEnumerable<MonoBehaviour> parts, Transform tfBase )
-		{
-			var (qMesh, qTf) = queryAboutMeshes( parts );
-			
-			var vtxs = buildVerteces( qMesh, qTf, tfBase );
-			var tris = buildIndeices( qMesh );
-			var uvs = qMesh.SelectMany( x => x.uv ).ToList();
-
-			return (vtxs, tris, uvs);
-		}
-		static public (List<Vector3> vtxs, List<Vector3> nms, List<int> tris, List<Vector2> uvs)
-			BuildNormalMeshElements( IEnumerable<MonoBehaviour> parts, Transform tfBase )
-		{
-			var (qMesh, qTf) = queryAboutMeshes( parts );
-			
-			var vtxs = buildVerteces( qMesh, qTf, tfBase );
-			var nms = buildNormals( qMesh, qTf, tfBase );
-			var tris = buildIndeices( qMesh );
-			var uvs = qMesh.SelectMany( x => x.uv ).ToList();
-
-			return (vtxs, nms, tris, uvs);
-		}
-
-		static public (List<Vector3> vtxs, List<Vector3> nms, List<int> tris, List<Vector2> uvs, List<Color32> cols)
-			BuildStructureWithPalletMeshElements( IEnumerable<_StructurePartBase> parts, Transform tfBase )
-		{
-			var (qMesh, qTf) = queryAboutMeshes( parts );
-			
-			var vtxs = buildVerteces( qMesh, qTf, tfBase );
-			var nms = buildNormals( qMesh, qTf, tfBase );
-			var tris = buildIndeices( qMesh );
-			var uvs = qMesh.SelectMany( x => x.uv ).ToList();
-
-			var qPartId = from pt in parts select pt.partId;
-			var qMatArray = from pt in parts select pt.GetComponent<MeshRenderer>()?.sharedMaterials;
-
-			var qPid = queryStructureIndecies( qMesh, qPartId );
-			var qPallets = queryePallets( qMesh, qMatArray );
-			var qPidPallet =
-				from xy in Enumerable.Zip( qPid, qPallets, (x,y)=>(pid:x, pallet:y) )
-				select new Color32( r:(byte)xy.pid.int4Index, g:(byte)xy.pid.memberIndex, b:(byte)xy.pid.bitIndex, a:(byte)xy.pallet );
-
-			return (vtxs, nms, tris, uvs, qPidPallet.ToList() );
-		}
-		static public Mesh ToMesh( this (List<Vector3> vtxs, List<Vector3> nms, List<int> tris, List<Vector2> uvs, List<Color32> cols) e )
-		{
-			var mesh = new Mesh();
-			mesh.SetVertices( e.vtxs );
-			mesh.SetTriangles( e.tris, submesh:0, calculateBounds:false );
-			mesh.SetUVs( 0, e.uvs );
-
-			return mesh;
-		}
-
-		static ( IEnumerable<Mesh> qMesh, IEnumerable<Transform> qTf )
-			queryAboutMeshes( IEnumerable<MonoBehaviour> parts )
-		{
-			var qMesh =
-				from pt in parts
-				select pt.GetComponent<MeshFilter>()?.sharedMesh ?? pt.GetComponent<SkinnedMeshRenderer>()?.sharedMesh
-				;
-
-			var qTf = from pt in parts select pt.transform;
-
-			return (qMesh, qTf);
-		}
-
-		/// <summary>
-		/// 各パーツメッシュの持つインデックスをすべて結合し、ひとつの配列にして返す。
-		/// その際各メッシュの頂点数は、次のインデックスのベースとなる。
-		/// また、マテリアル別のサブメッシュも、ひとつに統合される。
-		/// </summary>
-		static List<int> buildIndeices( IEnumerable<Mesh> qMesh )
-		{
-			var qVtxCount = qMesh
-				.Select( mesh => mesh.vertexCount )
-				.Scan( seed:0, (pre,cur) => pre + cur )
-				;
-			var qBaseVertex = Enumerable.Range(0,1).Concat( qVtxCount );// 先頭に 0 を追加する。
-
-			var qIndex =
-				from xy in Enumerable.Zip( qBaseVertex, qMesh, (x,y)=>(baseVtx:x, mesh:y) )
-				from index in xy.mesh.triangles // mesh.triangles は、サブメッシュを地続きに扱う。
-				select xy.baseVtx + index;
-
-			return qIndex.ToList();
-		}
-
-		/// <summary>
-		/// 
-		/// </summary>
-		static List<Vector3> buildVerteces( IEnumerable<Mesh> qMesh, IEnumerable<Transform> qTf, Transform tfBase )
-		{
-			var mtBaseInv = tfBase.worldToLocalMatrix;
-
-			var qVertex =
-				from xy in Enumerable.Zip( qMesh, qTf, (x,y)=>(mesh:x, tf:y) )
-				let mt = xy.tf.localToWorldMatrix * mtBaseInv
-				from vtx in xy.mesh.vertices
-				select mt.MultiplyPoint3x4( vtx )
-				;
-			
-			return qVertex.ToList();
-		}
-
-		/// <summary>
-		/// 
-		/// </summary>
-		static List<Vector3> buildNormals( IEnumerable<Mesh> qMesh, IEnumerable<Transform> qTf, Transform tfBase )
-		{
-			var mtBaseInv = tfBase.worldToLocalMatrix;
-
-			var qNormal =
-				from xy in Enumerable.Zip( qMesh, qTf, (x,y)=>(mesh:x, tf:y) )
-				let mt = xy.tf.localToWorldMatrix * mtBaseInv
-				from nm in xy.mesh.normals ?? recalculateNormals_( xy.mesh )
-				select mt.MultiplyVector( nm )
-				;
-			
-			return qNormal.ToList();
-
-			Vector3[] recalculateNormals_( Mesh mesh_ )
-			{
-				mesh_.RecalculateNormals();
-				return mesh_.normals;
-			}
-		}
-
-		static IEnumerable<(int int4Index, int memberIndex, int bitIndex)>
-			queryStructureIndecies( IEnumerable<Mesh> qMesh, IEnumerable<int> qPartId )
-		{
-			var qIndex =
-				from xy in Enumerable.Zip( qMesh, qPartId, (x,y)=>(mesh:x, partId:y) )
-				select (
-					int4Index:		xy.partId >> 5 >>2,
-					memberIndex:	xy.partId >> 5 & 0b_11,	// 0 ~ 3
-					bitIndex:		xy.partId & 0b_1_1111	// 0 ~ 31
-				);
-
-			return qIndex;
-		}
-		static IEnumerable<int>
-			queryePallets( IEnumerable<Mesh> qMesh, IEnumerable<Material[]> qMatArray )
-		{
-			var matToIndexDict = qMatArray
-				.SelectMany( mat => mat )
-				.Distinct()
-				.Select( (mat,i) => (mat,i) )
-				.ToDictionary( x => x.mat, x => x.i )
-				;
-			//var qPallet = null;
-
-			return new int [0];
-		}
-	}
-
 	public static class MeshUtility
 	{
 		
@@ -409,19 +302,6 @@ namespace ModelGeometry
 			return mesh;
 		}
 
-		static public bool IsReverseScale( ref Matrix4x4 mt )
-		{
-
-			//var up = Vector3.Cross( mt.GetColumn(0), mt.GetColumn(2) );
-
-			//return Vector3.Dot( up, mt.GetColumn(1) ) > 0.0f;
-
-
-			var up = Vector3.Cross( mt.GetRow(0), mt.GetRow(2) );
-		
-			return Vector3.Dot( up, mt.GetRow(1) ) > 0.0f;
-
-		}
 
 		static public IEnumerable<(int i0, int i1, int i2)> AsTriangleTupple( this int[] indexes )
 		{
