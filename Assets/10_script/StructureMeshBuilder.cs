@@ -254,7 +254,7 @@ namespace ModelGeometry
 			/// 　（渡された qMesh と qMatArray の対象がそうなっていること）
 			/// </summary>
 			public static (IEnumerable<Material>, IEnumerable<int>)
-				QueryePalletsEveryVertices( IEnumerable<Mesh> qMesh, IEnumerable<Material[]> qMatArray )
+				QueryePalletsEveryVertices( IEnumerable<Mesh> qMesh, IEnumerable<Renderer> qRender, IEnumerable<Material[]> qMatArray )
 			{
 				var matToIndexDict = qMatArray
 					.SelectMany( mat => mat )
@@ -263,16 +263,62 @@ namespace ModelGeometry
 					.ToDictionary( x => x.mat, x => x.i )
 					;
 
-				var qIndicesPerSubMeshes =
-					from xy in Enumerable.Zip( qMesh, qMatArray, (x,y)=>(mesh:x, mats:y) )
-					from imat in Enumerable.Range( 0, xy.mesh.subMeshCount )
-					select xy.mesh.GetTriangles( imat, applyBaseVertex:true )
+				var palletIdxsPerVertex = new List<int>( qMesh.Sum( mesh => mesh.vertexCount ) );
+				var qPalletIdxPerIndex =
+					from xy in qMesh.Zip( qRender, (x,y)=>(mesh:x, r:y))
+					from submesh in xy.r.sharedMaterials.Select( (mat,i)=>(mat,i) )
+					from idx in xy.mesh.GetTriangles( submesh.i, applyBaseVertex:true )
+					select (idx, mat:submesh.mat)
 					;
-					
+				foreach( var x in qPalletIdxPerIndex )
+				{
+					palletIdxsPerVertex[x.idx] = matToIndexDict[x.mat];
+				}
+
+				return new int [0];
+			}
+			public static (IEnumerable<Material>, IEnumerable<int>)
+				QueryePalletsEveryVertices2( IEnumerable<Mesh> qMesh, IEnumerable<Renderer> qRender, IEnumerable<Material[]> qMatArray )
+			{
+				var matToIndexDict = qMatArray
+					.SelectMany( mat => mat )
+					.Distinct()
+					.Select( (mat,i) => (mat,i) )
+					.ToDictionary( x => x.mat, x => x.i )
+					;
+
+				var palletIdxsPerVertex = new List<int>( qMesh.Sum( mesh => mesh.vertexCount ) );
+				var qPalletIdxPerIndex =
+					from xy in qMesh.Zip( qRender, (x,y)=>(mesh:x, r:y))
+					from submesh in xy.r.sharedMaterials.Select( (mat,i)=>(mat,i) )
+					from idx in xy.mesh.GetTriangles( submesh.i, applyBaseVertex:true )
+					group submesh.mat by idx
+					;
+				foreach( var x in qPalletIdxPerIndex )
+				{
+					palletIdxsPerVertex[x.Key] = matToIndexDict[x.First()];
+				}
+
+				return new int [0];
+			}
+			public static (IEnumerable<Material>, IEnumerable<int>)
+				QueryePalletsEveryVertices3( IEnumerable<Mesh> qMesh, IEnumerable<Renderer> qRender, IEnumerable<Material[]> qMatArray )
+			{
+				var matToIndexDict = qMatArray
+					.SelectMany( mat => mat )
+					.Distinct()
+					.Select( (mat,i) => (mat,i) )
+					.ToDictionary( x => x.mat, x => x.i )
+					;
+
 				var q =
-					from mesh in qMesh
-					from vtx in mesh.vertices
-					from idx in qIndicesPerSubMeshes.Distinct()
+					from xy in qMesh.Zip( qRender, (x,y)=>(mesh:x, r:y))
+					from submesh in xy.r.sharedMaterials.Select( (mat,i)=>(mat,i) )
+					from idx in xy.mesh.GetTriangles( submesh.i, applyBaseVertex:true )
+					group submesh.mat by idx into matsPerIdx
+					orderby matsPerIdx.Key
+					select matToIndexDict[matsPerIdx.First()]
+					;
 
 				return new int [0];
 			}
