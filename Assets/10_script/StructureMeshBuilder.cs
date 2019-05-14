@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using UnityEngine;
 using System.Linq;
 using Unity.Linq;
+using System.Threading.Tasks;
+using System;
 
 namespace ModelGeometry
 {
@@ -56,16 +58,18 @@ namespace ModelGeometry
 	public static class MeshCombiner
 	{
 
-		static public MeshElements BuildUnlitMeshElements( IEnumerable<MonoBehaviour> parts, Transform tfBase )
+		static public Task<MeshElements> BuildUnlitMeshElements( IEnumerable<MonoBehaviour> parts, Transform tfBase )
 		{
 			var (qMesh, qTf) = QueryUtility.QueryAboutMeshesEveryObjects( parts );
 			
-			return new MeshElements
-			{
-				Vertecies = ConvertUtility.BuildVerteces( qMesh, qTf, tfBase ),
-				Uvs = qMesh.SelectMany( x => x.uv ).ToList(),
-				Indecies = ConvertUtility.BuildIndeices( qMesh, qTf ),
-			};
+			return Task.Run(
+				() => new MeshElements
+				{
+					Vertecies = ConvertUtility.BuildVerteces( qMesh, qTf, tfBase ),
+					Uvs = qMesh.SelectMany( x => x.uv ).ToList(),
+					Indecies = ConvertUtility.BuildIndeices( qMesh, qTf ),
+				}
+			);
 		}
 
 		static public MeshElements BuildNormalMeshElements( IEnumerable<MonoBehaviour> parts, Transform tfBase )
@@ -87,12 +91,18 @@ namespace ModelGeometry
 			var (qMesh, qTf) = QueryUtility.QueryAboutMeshesEveryObjects( parts );
 			
 			var qPartId = from pt in parts select pt.partId;
-			var qMatArray = from pt in parts select pt.GetComponent<MeshRenderer>()?.sharedMaterials;
-
-			var qPid = QueryUtility.QueryStructureIndeciesEveryVertices( qMesh, qPartId );
-			var qPallets = QueryUtility.QueryePalletsEveryVertices( qMesh, qMatArray );
+			var qMatHashArray =
+				from pt in parts
+				select pt.GetComponent<MeshRenderer>()?.sharedMaterials into mats
+				from mat in mats.DefaultIfEmpty()
+				group mat.GetHashCode() by mats into matHashs
+				select matHashs.ToArray()
+				;
+			
+			var qPidPerVertex = QueryUtility.QueryStructureIndeciesEveryVertices( qMesh, qPartId );
+			var qPallets = QueryUtility.QueryePalletsEveryVertices( qMesh, qMatHashArray );
 			var qPidPallet =
-				from xy in Enumerable.Zip( qPid, qPallets, (x,y)=>(pid:x, pallet:y) )
+				from xy in Enumerable.Zip( qPidPerVertex, qPallets, (x,y)=>(pid:x, pallet:y) )
 				select new Color32
 				(
 					r:	(byte)xy.pid.int4Index, 
@@ -236,12 +246,12 @@ namespace ModelGeometry
 				QueryStructureIndeciesEveryVertices( IEnumerable<Mesh> qMesh, IEnumerable<int> qPartId )
 			{
 				var qIndex =
-					from pid in qPartId
-					from vtx in qMesh
+					from xy in Enumerable.Zip( qMesh, qPartId, (x,y)=>(mesh:x, pid:y) )
+					from vtx in xy.mesh.vertices
 					select (
-						int4Index:		pid >> 5 >>2,
-						memberIndex:	pid >> 5 & 0b_11,	// 0 ~ 3
-						bitIndex:		pid & 0b_1_1111		// 0 ~ 31
+						int4Index:		xy.pid >> 5 >>2,
+						memberIndex:	xy.pid >> 5 & 0b_11,	// 0 ~ 3
+						bitIndex:		xy.pid & 0b_1_1111		// 0 ~ 31
 					);
 
 				return qIndex;
@@ -253,29 +263,29 @@ namespace ModelGeometry
 			/// ・マテリアルの index は、トップレベルの GameObject 以下からすべて取得して採番する。
 			/// 　（渡された qMesh と qMatArray の対象がそうなっていること）
 			/// </summary>
-			public static (IEnumerable<Material>, IEnumerable<int>)
-				QueryePalletsEveryVertices( IEnumerable<Mesh> qMesh, IEnumerable<Renderer> qRender, IEnumerable<Material[]> qMatArray )
+			public static IEnumerable<int>
+				QueryePalletsEveryVertices( IEnumerable<Mesh> qMesh, IEnumerable<int[]> qMatHashArray )
 			{
-				var matToIndexDict = qMatArray
+				var matHashToIndexDict = qMatHashArray
 					.SelectMany( mat => mat )
 					.Distinct()
 					.Select( (mat,i) => (mat,i) )
 					.ToDictionary( x => x.mat, x => x.i )
 					;
 
-				var palletIdxsPerVertex = new List<int>( qMesh.Sum( mesh => mesh.vertexCount ) );
+				var palletIdxsPerVertex = new int [ qMesh.Sum( mesh => mesh.vertexCount ) ];
 				var qPalletIdxPerIndex =
-					from xy in qMesh.Zip( qRender, (x,y)=>(mesh:x, r:y))
-					from submesh in xy.r.sharedMaterials.Select( (mat,i)=>(mat,i) )
+					from xy in Enumerable.Zip( qMesh, qMatHashArray, (x,y)=>(mesh:x, matHash:y))
+					from submesh in xy.matHash.Select( (matHash,i)=>(matHash,i) )
 					from idx in xy.mesh.GetTriangles( submesh.i, applyBaseVertex:true )
-					select (idx, mat:submesh.mat)
+					select (idx, submesh.matHash)
 					;
 				foreach( var x in qPalletIdxPerIndex )
 				{
-					palletIdxsPerVertex[x.idx] = matToIndexDict[x.mat];
+					palletIdxsPerVertex[x.idx] = matHashToIndexDict[x.matHash];
 				}
-
-				return new int [0];
+				
+				return palletIdxsPerVertex;
 			}
 			public static (IEnumerable<Material>, IEnumerable<int>)
 				QueryePalletsEveryVertices2( IEnumerable<Mesh> qMesh, IEnumerable<Renderer> qRender, IEnumerable<Material[]> qMatArray )
@@ -286,8 +296,8 @@ namespace ModelGeometry
 					.Select( (mat,i) => (mat,i) )
 					.ToDictionary( x => x.mat, x => x.i )
 					;
-
-				var palletIdxsPerVertex = new List<int>( qMesh.Sum( mesh => mesh.vertexCount ) );
+				
+				var palletIdxsPerVertex = new int [ qMesh.Sum( mesh => mesh.vertexCount ) ];
 				var qPalletIdxPerIndex =
 					from xy in qMesh.Zip( qRender, (x,y)=>(mesh:x, r:y))
 					from submesh in xy.r.sharedMaterials.Select( (mat,i)=>(mat,i) )
@@ -298,8 +308,8 @@ namespace ModelGeometry
 				{
 					palletIdxsPerVertex[x.Key] = matToIndexDict[x.First()];
 				}
-
-				return new int [0];
+				
+				return (matToIndexDict.Keys, palletIdxsPerVertex);
 			}
 			public static (IEnumerable<Material>, IEnumerable<int>)
 				QueryePalletsEveryVertices3( IEnumerable<Mesh> qMesh, IEnumerable<Renderer> qRender, IEnumerable<Material[]> qMatArray )
@@ -311,7 +321,7 @@ namespace ModelGeometry
 					.ToDictionary( x => x.mat, x => x.i )
 					;
 
-				var q =
+				var qPalletIdxsPerVertex =
 					from xy in qMesh.Zip( qRender, (x,y)=>(mesh:x, r:y))
 					from submesh in xy.r.sharedMaterials.Select( (mat,i)=>(mat,i) )
 					from idx in xy.mesh.GetTriangles( submesh.i, applyBaseVertex:true )
@@ -320,7 +330,7 @@ namespace ModelGeometry
 					select matToIndexDict[matsPerIdx.First()]
 					;
 
-				return new int [0];
+				return (matToIndexDict.Keys, qPalletIdxsPerVertex);
 			}
 		}
 	}
@@ -349,13 +359,13 @@ namespace ModelGeometry
 		}
 
 
-		static public IEnumerable<(int i0, int i1, int i2)> AsTriangleTupple( this int[] indexes )
-		{
-			for( var i=0; i<indexes.Length; i+=3 )
-			{
-				yield return ( indexes[i+0], indexes[i+1], indexes[i+2] );
-			}
-		}
+		//static public IEnumerable<(int i0, int i1, int i2)> AsTriangleTupple( this int[] indexes )
+		//{
+		//	for( var i=0; i<indexes.Length; i+=3 )
+		//	{
+		//		yield return ( indexes[i+0], indexes[i+1], indexes[i+2] );
+		//	}
+		//}
 
 	}
 
