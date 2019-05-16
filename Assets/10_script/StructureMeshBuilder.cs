@@ -114,16 +114,15 @@ namespace ModelGeometry
 			var idxss = ( from mesh in qMesh select mesh.triangles ).ToList();
 			
 			var qPartId = from pt in parts select pt.partId;
-			var qMatHashArray =
+			var qMatHashArrayEveryParts =
 				from pt in parts
 				select pt.GetComponent<MeshRenderer>()?.sharedMaterials into mats
-				from mat in mats.DefaultIfEmpty()
+				from mat in mats ?? Enumerable.Empty<Material>()//.DefaultIfEmpty()
 				group mat.GetHashCode() by mats into matHashs
 				select matHashs.ToArray()
 				;
-			
 			var qPidPerVertex = QueryUtility.QueryStructureIndeciesEveryVertices( qMesh, qPartId );
-			var qPallets = QueryUtility.QueryePalletsEveryVertices( qMesh, qMatHashArray );
+			var qPallets = QueryUtility.QueryePalletsEveryVertices( qMesh, qMatHashArrayEveryParts );
 			var qPidPallet =
 				from xy in Enumerable.Zip( qPidPerVertex, qPallets, (x,y)=>(pid:x, pallet:y) )
 				select new Color32
@@ -134,32 +133,36 @@ namespace ModelGeometry
 					a:	(byte)xy.pallet
 				);
 			
-			return new MeshElements
-			{
-				Vertecies = ConvertUtility.BuildVerteces( qMesh, qTf, tfBase ),
-				Uvs = qMesh.SelectMany( x => x.uv ).ToList(),
-				Normals = ConvertUtility.BuildNormals( qMesh, qTf, tfBase ),
-				Indecies = ConvertUtility.BuildIndeices( qMesh, qTf ),
-				Colors = qPidPallet.ToList(),
-			};
+			//return new MeshElements
+			//{
+			//	Vertecies = ConvertUtility.BuildVerteces( vtxss, mtParts, mtBaseInv ),
+			//	Uvs = qMesh.SelectMany( x => x.uv ).ToList(),
+			//	Normals = ConvertUtility.BuildNormals( qMesh, qTf, tfBase ),
+			//	Indecies = ConvertUtility.BuildIndeices( qMesh, qTf ),
+			//	Colors = qPidPallet.ToList(),
+			//};
 			
 			var mtBaseInv = tfBase.worldToLocalMatrix;
 
 			return Task.Run(
-				() => new MeshElements
+				() => 
 				{
-					Vertecies = ConvertUtility.BuildVerteces( vtxss, mtParts, mtBaseInv ),
-					Normals = ConvertUtility.BuildNormals( nmss, mtParts, mtBaseInv ),
-					Uvs = uvss.SelectMany( uvs => uvs ).ToList(),
-					Indecies = ConvertUtility.BuildIndeices( vtxss, idxss, mtParts ),
-					Colors = qPidPallet.ToList(),
+
+					return new MeshElements
+					{
+						Vertecies = ConvertUtility.BuildVerteces( vtxss, mtParts, mtBaseInv ),
+						Normals = ConvertUtility.BuildNormals( nmss, mtParts, mtBaseInv ),
+						Uvs = uvss.SelectMany( uvs => uvs ).ToList(),
+						Indecies = ConvertUtility.BuildIndeices( vtxss, idxss, mtParts ),
+						Colors = qPidPallet.ToList(),
+					};
 				}
 			);
 		}
 
 
 		/// <summary>
-		/// メッシュ各要素（頂点、ＵＶ、インデックスなど）ごとのコンバートを行い、list<> につめて返す。
+		/// サブスレッドで扱えるメッシュ要素（頂点、ＵＶ、インデックスなど別々）ごとのコンバートを行い、list<> につめて返す。
 		/// </summary>
 		static class ConvertUtility
 		{
@@ -255,7 +258,7 @@ namespace ModelGeometry
 		}
 		
 		/// <summary>
-		/// 
+		/// 「Unity オブジェクト」→「サブスレッドで扱える要素」の配列に変換するクエリを作成する。
 		/// </summary>
 		static class QueryUtility
 		{
@@ -289,6 +292,7 @@ namespace ModelGeometry
 				{
 					mesh_.RecalculateNormals();
 					return mesh_.normals;
+				}
 			}
 
 			/// <summary>
@@ -309,13 +313,13 @@ namespace ModelGeometry
 
 				return qIndex;
 			}
-
+			
 			/// <summary>
-			/// 
+			/// マテリアルを GameObject 階層からすべて取得、重複削除してから index を採番する。
 			/// </summary>
-			public static Dictionary<int,int> ToDictionaryForMaterialHashToIndex( IEnumerable<int[]> qMatHashArray )
+			public static Dictionary<int,int> ToDictionaryForMaterialHashToIndex( IEnumerable<int[]> matHashArrayEveryParts )
 			{
-				return qMatHashArray
+				return matHashArrayEveryParts
 					.SelectMany( mat => mat )
 					.Distinct()
 					.Select( (mat,i) => (mat,i) )
@@ -324,27 +328,28 @@ namespace ModelGeometry
 			}
 
 			/// <summary>
-			/// マテリアル配列と、頂点ごとの pallet index のＬＩＮＱクエリを返す。
+			/// 頂点ごとの pallet index のクエリを返す。
 			/// ・
-			/// ・マテリアルの index は、トップレベルの GameObject 以下からすべて取得して採番する。
-			/// 　（渡された qMesh と qMatArray の対象がそうなっていること）
+			/// ・
 			/// </summary>
 			public static IEnumerable<int>
-				QueryePalletsEveryVertices( IEnumerable<Mesh> qMesh,  )
+				QueryePalletEveryVertices( IEnumerable<IEnumerable<Vector3>> verticesEveryMeshes, IEnumerable<int> matHashesEveryMeshes )
 			{
-				var palletIdxsPerVertex = new int [ qMesh.Sum( mesh => mesh.vertexCount ) ];
-				var qPalletIdxPerIndex =
-					from xy in Enumerable.Zip( qMesh, qMatHashArray, (x,y)=>(mesh:x, matHash:y))
+				var palletIdxArrayPerVertex = new int [ verticesEveryMeshes.Sum( vtxs => vtxs.Count() ) ];
+
+				var qPalletIdxEveryIndices =
+					from xy in Enumerable.Zip( verticesEveryMeshes, matHashesEveryMeshes, (x,y)=>(vtxs:x, matHash:y))
 					from submesh in xy.matHash.Select( (matHash,i)=>(matHash,i) )
 					from idx in xy.mesh.GetTriangles( submesh.i, applyBaseVertex:true )
 					select (idx, submesh.matHash)
 					;
+
 				foreach( var x in qPalletIdxPerIndex )
 				{
-					palletIdxsPerVertex[x.idx] = matHashToIndexDict[x.matHash];
+					palletIdxArrayPerVertex[x.idx] = matHashToIndexDict[x.matHash];
 				}
 				
-				return palletIdxsPerVertex;
+				return palletIdxArrayPerVertex;
 			}
 			public static (IEnumerable<Material>, IEnumerable<int>)
 				QueryePalletsEveryVertices2( IEnumerable<Mesh> qMesh, IEnumerable<Renderer> qRender, IEnumerable<Material[]> qMatArray )
