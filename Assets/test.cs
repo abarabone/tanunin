@@ -9,10 +9,12 @@ public class test : _StructurePartBase
 {
 	[SerializeField] Material mat;
 
-    void Start()
+    async void Start()
     {
 		var parts = this.GetComponentsInChildren<test>();
-        Task.WhenAll( MeshCombiner.BuildUnlitMeshElements( parts, this.transform ) ).Result.First()
+        var results = await Task.WhenAll( MeshCombiner.BuildNormalMeshElements( parts, this.transform ) );
+		results
+			.First()
 			.CreateUnlitMesh().ToWriteOnly()
 			.AddToNewGameObject( mat )
 			.transform.position = Vector3.one;
