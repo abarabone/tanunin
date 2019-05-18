@@ -12,7 +12,7 @@ public class test : _StructurePartBase
     async void Start()
     {
 		var parts = this.GetComponentsInChildren<test>();
-        var results = await Task.WhenAll( MeshCombiner.BuildNormalMeshElements( parts, this.transform ) );
+        var results = await Task.WhenAll( Task.Run(MeshCombiner.BuildNormalMeshElements( parts, this.transform )) );
 		results
 			.First()
 			.CreateUnlitMesh().ToWriteOnly()
