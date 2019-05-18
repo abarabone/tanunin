@@ -5,6 +5,7 @@ using System.Linq;
 using Unity.Linq;
 using System.Threading.Tasks;
 using System;
+using Abss.Common.Extension;
 
 namespace ModelGeometry
 {
@@ -40,7 +41,7 @@ namespace ModelGeometry
 		public List<Vector3>	Tangents;
 		public List<Color32>	Colors;
 
-		public IEnumerable<Mesh>	QueryEveryMeshes;
+		public IEnumerable<Mesh>	MeshesQuery;
 		public List<Matrix4x4>		MtParts;
 		public Matrix4x4			MtBaseInv;
 
@@ -118,7 +119,7 @@ namespace ModelGeometry
 			var partIds = ( from pt in parts select pt.partId ).ToList();
 
 			// 
-			var qMathashArrayEveryParts = QueryUtility.QueryMathashArraysEveryParts( parts );
+			var qMathashArrayEveryParts = QueryUtility.QueryMatHashArraysEveryParts( parts );
 
 			// マテリアルハッシュからマテリアルインデックスに変換する辞書を生成する。
 			var mathashToIndexDict = ConvertUtility.ToDictionaryForMaterialHashToIndex( qMathashArrayEveryParts );
@@ -160,7 +161,7 @@ namespace ModelGeometry
 				( IEnumerable<IEnumerable<Vector3>> verticesPerMeshes, IEnumerable<Matrix4x4> mtParts, Matrix4x4 mtBaseInv )
 			{
 				var qVertex =
-					from xy in Enumerable.Zip( verticesPerMeshes, mtParts, (x,y)=>(vtxs:x, mt:y) )
+					from xy in (verticesPerMeshes, mtParts).Zip( (x,y)=>(vtxs:x, mt:y) )
 					let mt = xy.mt * mtBaseInv
 					from vtx in xy.vtxs
 					select mt.MultiplyPoint3x4( vtx )
@@ -240,23 +241,23 @@ namespace ModelGeometry
 					.Scan( seed:0, (pre,cur) => pre + cur )
 					;
 				var qBaseVertex = Enumerable.Repeat(0,1).Concat( qVtxCount );	// { 0 } + { mesh 0 の頂点数, mesh 1 の頂点数, ... }
-
-				var qIndexApplyBaseVertex =
-					from idxs in 
-
+				
 				var qIndex =
-					from xyz in indicesPerMeshes
-						.Zip( mtParts, (x,y)=>(idxs:x, mt:y) )
-						.Zip( qBaseVertex, (xy,z)=>(xy.idxs, xy.mt, baseVtx:z) )
-					from index in isReverseScale_( xyz.mt )// mesh.triangles は、サブメッシュを地続きに扱う。
-						? reverseEvery3_(xyz.idxs) 
-						: xyz.idxs
+					from (IEnumerable<int> idxs, Matrix4x4 mt, int baseVtx) xyz in (indicesPerMeshes, mtParts, qBaseVertex).Zip()
+					from index in reverseEvery3_IfMinusScale_( xyz.idxs, xyz.mt )
 					select xyz.baseVtx + index;
 
 				return qIndex.ToList();
 
 
-				bool isReverseScale_( Matrix4x4 mt )
+				IEnumerable<int> reverseEvery3_IfMinusScale_( IEnumerable<int> indices_, Matrix4x4 mtPart_ )
+				{
+					if( isMinusScale_(in mtPart_) ) return reverseEvery3_(indices_);
+
+					return indices_;
+				}
+
+				bool isMinusScale_( in Matrix4x4 mt )
 				{
 					var up = Vector3.Cross( mt.GetRow( 0 ), mt.GetRow( 2 ) );
 					return Vector3.Dot( up, mt.GetRow( 1 ) ) > 0.0f;
@@ -316,17 +317,17 @@ namespace ModelGeometry
 			/// 全パーツから、それぞれのマテリアルハッシュ配列をすべてクエリする。
 			/// </summary>
 			public static IEnumerable<IEnumerable<int>>
-				QueryMathashArraysEveryParts( IEnumerable<_StructurePartBase> parts )
+				QueryMatHashArraysEveryParts( IEnumerable<_StructurePartBase> parts )
 			{
-				var qMathashArrayEveryParts =
+				var qMatHashArrayEveryParts =
 					from pt in parts
 					select pt.GetComponent<MeshRenderer>()?.sharedMaterials into mats
-					from mat in mats ?? Enumerable.Empty<Material>()//.DefaultIfEmpty()
+					from mat in mats ?? Enumerable.Empty<Material>()//mats.DefaultIfEmpty()
 					group mat.GetHashCode() by mats into matHashs
 					select matHashs.ToArray()
 					;
 
-				return qMathashArrayEveryParts;
+				return qMatHashArrayEveryParts;
 			}
 
 			/// <summary>
@@ -368,7 +369,11 @@ namespace ModelGeometry
 			/// ・
 			/// ・
 			/// </summary>
-			public static IEnumerable<int> QueryePalletEveryVertices
+			public static IEnumerable<int> QueryePalletEveryVertices( IEnumerable<> )
+			{
+
+			}
+			public static IEnumerable<int> QueryePalletEveryVertices__
 			(
 				IEnumerable<Mesh> meshesEveryParts,
 				IEnumerable<IEnumerable<int>> matHashArraysEveryParts,
@@ -381,13 +386,17 @@ namespace ModelGeometry
 				// 
 				var indicesPerSubmeshPerMesh =
 					from mesh in meshesEveryParts
-					select mesh.get
+					from submeshIdx in Enumerable.Range( 0, mesh.subMeshCount )
+					from idxs in mesh.GetTriangles(submeshIdx, applyBaseVertex:true)
+					from 
+					select 
+					;
 
 				// 
 				var qPalletIdxPerIndex =
 					from xy in Enumerable.Zip( meshesEveryParts, matHashArraysEveryParts, (x,y)=>(mesh:x, mathash:y))
 					from submesh in xy.mathash.Select( (matHash,i)=>(matHash,i) )
-					from idx in xy.mesh.GetTriangles( submesh.i, applyBaseVertex:true )
+					from idx in xy.mesh.GetTriangles( submesh.i )
 					select (idx, submesh.matHash)
 					;
 
