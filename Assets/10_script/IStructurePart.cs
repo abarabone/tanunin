@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace ModelGeometry
+namespace Abss.StructureObject
 {
 	public interface IStructurePart
 	{

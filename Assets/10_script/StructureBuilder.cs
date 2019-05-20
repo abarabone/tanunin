@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using System;
 
-namespace ModelGeometry
+namespace Abss.StructureObject
 {
 
 	public class StructureBuilder : MonoBehaviour, IDisposable

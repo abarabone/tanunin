@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 using System;
 using Abss.Common.Extension;
 
-namespace ModelGeometry
+namespace Abss.StructureObject
 {
 	static public class StructureNearObjectBuilder
 	{
@@ -77,9 +77,9 @@ namespace ModelGeometry
 
 			return () => new MeshElements
 			{
-				Vertecies = ConvertUtility.BuildVerteces( vtxss, mtParts, mtBaseInv ),
+				Vertecies = ConvertUtility.ToVerticesList( vtxss, mtParts, mtBaseInv ),
 				Uvs = uvss.SelectMany( uvs => uvs ).ToList(),
-				Indecies = ConvertUtility.BuildIndeices( vtxss, idxss, mtParts ),
+				Indecies = ConvertUtility.ToIndeicesList( vtxss, idxss, mtParts ),
 
 				MtBaseInv = mtBaseInv,
 				MtParts = mtParts,
@@ -99,7 +99,7 @@ namespace ModelGeometry
 			{
 				var me = f();
 
-				me.Normals = ConvertUtility.BuildNormals( nmss, me.MtParts, me.MtBaseInv );
+				me.Normals = ConvertUtility.ToNormalsList( nmss, me.MtParts, me.MtBaseInv );
 
 				return me;
 			};
@@ -119,24 +119,26 @@ namespace ModelGeometry
 			var partIds = ( from pt in parts select pt.partId ).ToList();
 
 			// 
-			var qMathashArrayEveryParts = QueryUtility.QueryMatHashArraysEveryParts( parts );
+			var vertexCountEverySubmeshes = QueryUtility.QueryVertexCountEverySubmeshes( qMesh ).ToList();
 
-			// マテリアルハッシュからマテリアルインデックスに変換する辞書を生成する。
-			var mathashToIndexDict = ConvertUtility.ToDictionaryForMaterialHashToIndex( qMathashArrayEveryParts );
-
-			// パレットＩＤをすべて。
-			var palletsEveryVertices =
-				QueryUtility.QueryePalletEveryVertices( qMesh, qMathashArrayEveryParts, mathashToIndexDict )
-				.ToList();
-			
 			// 各メッシュごとに頂点数を取得。
 			var vertexCountEveryMeshes = ( from mesh in qMesh select mesh.vertexCount ).ToList();
 
+			// 
+			var mathashArrayEveryParts = QueryUtility.QueryMatHashArraysEveryParts( parts ).ToList();
+
 			return () => 
 			{
+				// mat hash → combined mat index に変換する辞書を生成する。
+				var mathashToIndexDict = ConvertUtility.ToDictionaryForMaterialHashToIndex( mathashArrayEveryParts );
+
 				// 頂点ごとのパーツＩＤをすべてクエリする。
 				var qPidPerVertex = QueryUtility.QueryStructureIndexEveryVertices( vertexCountEveryMeshes, partIds );
 
+				// パレットＩＤをすべて。
+				var palletsEveryVertices = QueryUtility
+					.QueryePalletEveryVertices( vertexCountEverySubmeshes, mathashArrayEveryParts, mathashToIndexDict )
+					.ToList();
 				
 				var me = f();
 
@@ -157,7 +159,7 @@ namespace ModelGeometry
 			/// <summary>
 			/// 
 			/// </summary>
-			public static List<Vector3> BuildVerteces
+			public static List<Vector3> ToVerticesList
 				( IEnumerable<IEnumerable<Vector3>> verticesPerMeshes, IEnumerable<Matrix4x4> mtParts, Matrix4x4 mtBaseInv )
 			{
 				var qVertex =
@@ -173,7 +175,7 @@ namespace ModelGeometry
 			/// <summary>
 			/// 
 			/// </summary>
-			public static List<Vector3> BuildNormals
+			public static List<Vector3> ToNormalsList
 				( IEnumerable<IEnumerable<Vector3>> normalsPerMeshes, IEnumerable<Matrix4x4> mtParts, Matrix4x4 mtBaseInv )
 			{
 				var qNormal =
@@ -182,14 +184,14 @@ namespace ModelGeometry
 					from nm in xy.nms
 					select mt.MultiplyVector( nm )
 					;
-			
+				
 				return qNormal.ToList();
 
-				Vector3[] recalculateNormals_( Mesh mesh_ )
-				{
-					mesh_.RecalculateNormals();
-					return mesh_.normals;
-				}
+				//Vector3[] recalculateNormals_( Mesh mesh_ )
+				//{
+				//	mesh_.RecalculateNormals();
+				//	return mesh_.normals;
+				//}
 			}
 			
 			/// <summary>
@@ -232,7 +234,7 @@ namespace ModelGeometry
 			/// その際各メッシュの頂点数は、次のインデックスのベースとなる。
 			/// また、マテリアル別のサブメッシュも、ひとつに統合される。
 			/// </summary>
-			public static List<int> BuildIndeices
+			public static List<int> ToIndeicesList
 				( IEnumerable<IEnumerable<Vector3>> verticesPerMeshes, IEnumerable<IEnumerable<int>> indicesPerMeshes, IEnumerable<Matrix4x4> mtParts )
 			{
 				// 各メッシュに対する、頂点インデックスのベースオフセットをクエリする。
@@ -285,7 +287,7 @@ namespace ModelGeometry
 		
 		/// <summary>
 		/// パーツやメッシュ等から、要素の集合を抽出するクエリを生成する。
-		/// 引数が Unity オブジェクトでないものは、サブスレッドでも処理できる。
+		/// 引数に Unity オブジェクトをとらないものは、サブスレッドでも処理できる。
 		/// </summary>
 		static class QueryUtility
 		{
@@ -300,9 +302,13 @@ namespace ModelGeometry
 				var qPidEveryParts =	
 					from pid in partIds
 					select (
-						int4Index:		pid >> 5 >>2,
-						memberIndex:	pid >> 5 & 0b_11,	// 0 ~ 3
-						bitIndex:		pid & 0b_1_1111		// 0 ~ 31
+					//	int4Index:		pid >> 5 >> 2,
+					//	memberIndex:	pid >> 5 & 0b_11,	// 0 ~ 3
+					//	bitIndex:		pid & 0b_1_1111		// 0 ~ 31
+						int4Index:		pid / 24 >> 2,
+						memberIndex:	pid / 24 & 0b_11,	// 0 ~ 23
+						bitIndex:		pid % 24			// 0 ~ 23
+						// unity で int4[] を転送する手段がないので、float の実数部範囲で妥協する。
 					);
 				var qPidEveryVertices =
 					from xy in Enumerable.Zip( vertexCountEveryMeshes, qPidEveryParts, (x,y)=>(vtxCount:x, pid:y) )
@@ -315,6 +321,7 @@ namespace ModelGeometry
 			
 			/// <summary>
 			/// 全パーツから、それぞれのマテリアルハッシュ配列をすべてクエリする。
+			/// 名前順にソートされる。
 			/// </summary>
 			public static IEnumerable<IEnumerable<int>>
 				QueryMatHashArraysEveryParts( IEnumerable<_StructurePartBase> parts )
@@ -323,6 +330,7 @@ namespace ModelGeometry
 					from pt in parts
 					select pt.GetComponent<MeshRenderer>()?.sharedMaterials into mats
 					from mat in mats ?? Enumerable.Empty<Material>()//mats.DefaultIfEmpty()
+					orderby mat.name
 					group mat.GetHashCode() by mats into matHashs
 					select matHashs.ToArray()
 					;
@@ -365,93 +373,49 @@ namespace ModelGeometry
 			}
 			
 			/// <summary>
-			/// 頂点ごとの pallet index のクエリを返す。
-			/// ・
-			/// ・
+			/// 
 			/// </summary>
-			public static IEnumerable<int> QueryePalletEveryVertices( IEnumerable<> )
+			public static IEnumerable<int> QueryVertexCountEverySubmeshes( IEnumerable<Mesh> meshes )
 			{
+				var qVertexCountEverySubmeshes =
+					from mesh in meshes
+					from subIdx in Enumerable.Range( 0, mesh.subMeshCount )
+					select calculateVertexCount_( subIdx, mesh )
+					;
 
+				return qVertexCountEverySubmeshes;
+
+				int calculateVertexCount_( int subIdx_, Mesh mesh_ )
+				{
+					if( subIdx_ < mesh_.subMeshCount - 1 ) return (int)mesh_.GetBaseVertex(subIdx_ + 1);
+
+					return mesh_.vertexCount;
+				}
 			}
-			public static IEnumerable<int> QueryePalletEveryVertices__
+
+			/// <summary>
+			/// 頂点ごとの pallet index のクエリを返す。
+			/// </summary>
+			public static IEnumerable<int> QueryePalletEveryVertices
 			(
-				IEnumerable<Mesh> meshesEveryParts,
-				IEnumerable<IEnumerable<int>> matHashArraysEveryParts,
+				IEnumerable<int> vertexCountEverySubmeshes,
+				IEnumerable<IEnumerable<int>> matHashArrayEveryMeshes,
 				Dictionary<int,int> mathashToIndexDict
 			)
 			{
-				// 全頂点分のバッファを確保。
-				var palletIdxArrayPerVertex = new int [ meshesEveryParts.Sum( mesh => mesh.vertexCount ) ];
-
-				// 
-				var indicesPerSubmeshPerMesh =
-					from mesh in meshesEveryParts
-					from submeshIdx in Enumerable.Range( 0, mesh.subMeshCount )
-					from idxs in mesh.GetTriangles(submeshIdx, applyBaseVertex:true)
-					from 
-					select 
+				// 頂点ごとに pallet index
+				// pallet index は 結合後のマテリアルへの添え字
+				// mat idx は、辞書でＩＤを取得して振る
+				// submesh ごとの vertex count で、src mat idx を
+				var qPalletIdx =
+					from matHashEverySubmeshes in matHashArrayEveryMeshes
+					from (int matHash, int vtxCount) xy in (matHashEverySubmeshes, vertexCountEverySubmeshes).Zip()
+					let matIdx = mathashToIndexDict[xy.matHash]
+					from matIdxEveryVertices in Enumerable.Repeat(matIdx, xy.vtxCount)
+					select matIdxEveryVertices
 					;
 
-				// 
-				var qPalletIdxPerIndex =
-					from xy in Enumerable.Zip( meshesEveryParts, matHashArraysEveryParts, (x,y)=>(mesh:x, mathash:y))
-					from submesh in xy.mathash.Select( (matHash,i)=>(matHash,i) )
-					from idx in xy.mesh.GetTriangles( submesh.i )
-					select (idx, submesh.matHash)
-					;
-
-				// 
-				foreach( var x in qPalletIdxPerIndex )
-				{
-					palletIdxArrayPerVertex[x.idx] = mathashToIndexDict[x.matHash];
-				}
-				
-				return palletIdxArrayPerVertex;
-			}
-			public static (IEnumerable<Material>, IEnumerable<int>)
-				QueryePalletsEveryVertices2( IEnumerable<Mesh> qMesh, IEnumerable<Renderer> qRender, IEnumerable<Material[]> qMatArray )
-			{
-				var matToIndexDict = qMatArray
-					.SelectMany( mat => mat )
-					.Distinct()
-					.Select( (mat,i) => (mat,i) )
-					.ToDictionary( x => x.mat, x => x.i )
-					;
-				
-				var palletIdxsPerVertex = new int [ qMesh.Sum( mesh => mesh.vertexCount ) ];
-				var qPalletIdxPerIndex =
-					from xy in qMesh.Zip( qRender, (x,y)=>(mesh:x, r:y))
-					from submesh in xy.r.sharedMaterials.Select( (mat,i)=>(mat,i) )
-					from idx in xy.mesh.GetTriangles( submesh.i, applyBaseVertex:true )
-					group submesh.mat by idx
-					;
-				foreach( var x in qPalletIdxPerIndex )
-				{
-					palletIdxsPerVertex[x.Key] = matToIndexDict[x.First()];
-				}
-				
-				return (matToIndexDict.Keys, palletIdxsPerVertex);
-			}
-			public static (IEnumerable<Material>, IEnumerable<int>)
-				QueryePalletsEveryVertices3( IEnumerable<Mesh> qMesh, IEnumerable<Renderer> qRender, IEnumerable<Material[]> qMatArray )
-			{
-				var matToIndexDict = qMatArray
-					.SelectMany( mat => mat )
-					.Distinct()
-					.Select( (mat,i) => (mat,i) )
-					.ToDictionary( x => x.mat, x => x.i )
-					;
-
-				var qPalletIdxsPerVertex =
-					from xy in qMesh.Zip( qRender, (x,y)=>(mesh:x, r:y))
-					from submesh in xy.r.sharedMaterials.Select( (mat,i)=>(mat,i) )
-					from idx in xy.mesh.GetTriangles( submesh.i, applyBaseVertex:true )
-					group submesh.mat by idx into matsPerIdx
-					orderby matsPerIdx.Key
-					select matToIndexDict[matsPerIdx.First()]
-					;
-
-				return (matToIndexDict.Keys, qPalletIdxsPerVertex);
+				return qPalletIdx;
 			}
 		}
 	}
