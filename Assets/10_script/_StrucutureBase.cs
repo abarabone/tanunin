@@ -8,13 +8,16 @@ namespace Abss.StructureObject
 	public class _StrucutureBase : MonoBehaviour, IStructure
 	{
 
+		[SerializeField]
+		Transform tfContentsTop;
 
-		public Transform	Tf;
+
+		Transform	tf;
 	
-	
-		public GameObject	Near;
 		
-		public IStructurePart[] Parts;
+		GameObject	near;
+		
+		//IStructurePart[] parts;
 		
 
 		//public StructureRenderer3 nearRenderer { get; protected set; }
@@ -46,7 +49,7 @@ namespace Abss.StructureObject
 
 			// near が作成されていない前提で far を探している
 
-			return Tf.findWithLayerInDirectChildren( UserLayer._bgDetail ).gameObject;
+			return tf.findWithLayerInDirectChildren( UserLayer._bgDetail ).gameObject;
 
 		}
 
@@ -55,7 +58,7 @@ namespace Abss.StructureObject
 		protected GameObject findPartContents()
 		{
 
-			var contents = Tf.getComponentInDirectChildren<_StructurePartContents>();
+			var contents = tf.getComponentInDirectChildren<_StructurePartContents>();
 		
 			return contents ? contents.gameObject : new GameObject( "near stab" );//tf.GetComponentInChildren<_StructurePartContents3>().gameObject;
 
@@ -103,8 +106,8 @@ namespace Abss.StructureObject
 		public void Init()
 		{
 			
-			this.Tf = transform;
-			this.Near = findPartContents();
+			this.tf = transform;
+			this.near = findPartContents();
 			
 			initRigidbody_( getOrCreateRigidBody_() );
 
@@ -141,44 +144,33 @@ namespace Abss.StructureObject
 		}
 		
 
+		// 破壊したい時はこれを呼ぶ
 		public void Destruct()
 		{
-			throw new System.NotImplementedException();
+			Destroy( this.gameObject );
 		}
 
+		/// <summary>
+		/// 
+		/// </summary>
 		public void SwitchToNear()
 		{
-			throw new System.NotImplementedException();
+			//near.SetActive( true );
+			near.GetComponent<Rigidbody>().detectCollisions = true;
+			near.GetComponent<MeshRenderer>().enabled = true;
 		}
 
+		/// <summary>
+		/// 
+		/// </summary>
 		public void SwitchToFar()
 		{
-			throw new System.NotImplementedException();
+			//near.SetActive( false );
+			near.GetComponent<Rigidbody>().detectCollisions = false;
+			near.GetComponent<MeshRenderer>().enabled = false;
 		}
 		
-	
-		public virtual void destruct()
-		// 破壊したい時はこれを呼ぶ
-		{
-			Destroy( gameObject );
-		}
-
-
-		public virtual void switchToNear()
-		{
-			//near.SetActive( true );
-
-			Near.GetComponent<Rigidbody>().detectCollisions = true;
-			Near.GetComponent<MeshRenderer>().enabled = true;
-		}
-	
-		public virtual void switchToFar()
-		{
-			//near.SetActive( false );
-
-			Near.GetComponent<Rigidbody>().detectCollisions = false;
-			Near.GetComponent<MeshRenderer>().enabled = false;
-		}
+		
 	}
 }
 

@@ -11,24 +11,27 @@ namespace Abss.StructureObject
 		private IStructurePart[]	parts;
 		private GameObject			near;
 		
-		public IStructurePart[] GetOrCreateParts()
+		public IStructurePart[] Parts
 		{
-			if( this.parts == null )
+			get
 			{
+				if( this.parts != null ) return this.parts;
+				
 				this.parts = this.GetComponentsInChildren<IStructurePart>( includeInactive:true );
+				return this.parts;
 			}
-
-			return this.parts;
 		}
 
-		public GameObject GetOrCreateNearObject()
+		public GameObject Near
 		{
-			if( this.near == null )
+			get
 			{
-				this.near = null;
+				if( this.near != null ) return this.near;
+				
+				this.near = 
+				return this.near;
 			}
-
-			return this.near;
+			
 		}
 		
 	}

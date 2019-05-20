@@ -73,7 +73,7 @@ namespace Abss.Common.Extension
 		{
 			return new Vector4( value[offset+0], value[offset+1], value[offset+2], value[offset+3] );
 		}
-		public static Vector4 ToVector4( this vfloat[] value )
+		public static Vector4 ToVector4( this float[] value )
 		{
 			return new Vector4( value[0], value[1], value[2], value[3] );
 		}
