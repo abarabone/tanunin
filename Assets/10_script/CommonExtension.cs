@@ -64,6 +64,24 @@ namespace Abss.Common.Extension
 		//{
 		//	return new Vector4( v.x, v.y, v.z, v.w );
 		//}
+
+		public static Vector4 ToVector4( this int[] value )
+		{
+			return new Vector4( value[0], value[1], value[2], value[3] );
+		}
+		public static Vector4 ToVector4( this int[] value, int offset )
+		{
+			return new Vector4( value[offset+0], value[offset+1], value[offset+2], value[offset+3] );
+		}
+		public static Vector4 ToVector4( this vfloat[] value )
+		{
+			return new Vector4( value[0], value[1], value[2], value[3] );
+		}
+		public static Vector4 ToVector4( this float[] value, int offset )
+		{
+			return new Vector4( value[offset+0], value[offset+1], value[offset+2], value[offset+3] );
+		}
+
 	
 		[StructLayout(LayoutKind.Explicit)]
 		struct FloatInt

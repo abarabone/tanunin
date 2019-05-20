@@ -118,13 +118,13 @@ namespace Abss.StructureObject
 			// 全パーツから、パーツＩＤをすべてクエリする。
 			var partIds = ( from pt in parts select pt.partId ).ToList();
 
-			// 
+			// サブメッシュ単位で、頂点数を取得。
 			var vertexCountEverySubmeshes = QueryUtility.QueryVertexCountEverySubmeshes( qMesh ).ToList();
 
 			// 各メッシュごとに頂点数を取得。
 			var vertexCountEveryMeshes = ( from mesh in qMesh select mesh.vertexCount ).ToList();
 
-			// 
+			// パーツごとに、mat hath の配列を取得。
 			var mathashArrayEveryParts = QueryUtility.QueryMatHashArraysEveryParts( parts ).ToList();
 
 			return () => 

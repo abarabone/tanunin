@@ -6,9 +6,16 @@ using System.Linq;
 using UniRx;
 using System;
 using System.Runtime;
+using Abss.Common.Extension;
 
 namespace Abss.StructureObject
 {
+	/// <summary>
+	/// StructureNear オブジェクトを描画するために必要なマテリアルプロパティをセットする。
+	/// ・テクスチャ
+	/// ・カラーパレット
+	/// ・パーツオンオフ
+	/// </summary>
 	sealed public class StructureNearRenderingController : MonoBehaviour
 	{
 
@@ -141,13 +148,7 @@ namespace Abss.StructureObject
 			//Buffer.BlockCopy( intBitFlags, 0, this.BitFlags, 0, intBitFlags.Length * 4 >> 2 );
 			for( var i = 0; i < intBitFlags.Length; i += 4 )
 			{
-				this.BitFlags[ i >> 2 ] = new Vector4
-				{
-					x = intBitFlags[ i + 0 ],
-					y = intBitFlags[ i + 1 ],
-					z = intBitFlags[ i + 2 ],
-					w = intBitFlags[ i + 3 ],
-				};
+				this.BitFlags[ i >> 2 ] = intBitFlags.ToVector4( i );
 			}
 		}
 	}
