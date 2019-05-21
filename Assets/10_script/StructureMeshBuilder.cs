@@ -51,30 +51,29 @@ namespace Abss.StructureObject
 				rb.isKinematic = true;
 			}
 
-			
 			void addRenderer_( GameObject go_, Mesh mesh_, Material mat_ )
 			{
 				var mf = go_.AddComponent<MeshFilter>();
 				mf.sharedMesh = mesh_;
 
-
 				var mr = go_.AddComponent<MeshRenderer>();
-
-				mr.sharedMaterial = mat;
+				mr.sharedMaterial = mat_;
 			}
 
-			Material makeMaterial_( )
+			Material makeMaterial_( Texture tex_ )
 			{
 				var mat	= new Material( selectShader( meshBuilder, shaders ) );
-				mat.mainTexture = meshBuilder.draw.texture;
+				mat.mainTexture = tex_;
 
-
+				return mat;
 			}
 
-
-			var sr = go.AddComponent<StructureRenderer3>();
-		
-			sr.initAllPartsVisibilityOn( parts, mr );
+			void addStructure_( GameObject go_ )
+			{
+				var sr = go.AddComponent<StructureNearRenderingController>();
+				
+				sr.SetVisibilityFlags(  );
+			}
 
 
 			go.SetActive( false );
