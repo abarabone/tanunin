@@ -24,6 +24,9 @@ namespace Abss.StructureObject
 
 		MaterialPropertyBlock mpb;
 
+		// ビットフラグ更新通知用
+		ISubject<Unit> visibilityFlagObserver = new Subject<Unit>();
+
 		readonly static int propId_isVisibleFlags = Shader.PropertyToID("isVisibleFlags");
 		
 
@@ -34,9 +37,6 @@ namespace Abss.StructureObject
 		// 32bit flag * 4 * 8 で 1024 bit を想定（現状 24bit だが）
 		// ただし、SetInt4Array() が存在しないため、int イメージでは転送できない。
 		// float にキャストしないといけない。つまり、0 ~ -1(32bit) ではなく、0 ~ 0xffffff(24bit) の値に限定される。
-
-		// ビットフラグ更新通知用
-		ISubject<Unit> visibilityFlagObserver = new Subject<Unit>();
 
 
 		/// <summary>

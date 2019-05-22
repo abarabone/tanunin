@@ -55,7 +55,7 @@ namespace Abss.Geometry
 	{
 		
 		/// <summary>
-		/// 
+		/// Mesh 要素を結合するデリゲートを返す。位置とＵＶのみ。
 		/// </summary>
 		static public Func<MeshElements>
 			BuildUnlitMeshElements( IEnumerable<MonoBehaviour> parts, Transform tfBase )
@@ -81,7 +81,7 @@ namespace Abss.Geometry
 		}
 		
 		/// <summary>
-		/// 
+		/// Mesh 要素を結合するデリゲートを返す。位置とＵＶと法線。
 		/// </summary>
 		static public Func<MeshElements>
 			BuildNormalMeshElements( IEnumerable<MonoBehaviour> parts, Transform tfBase )
@@ -103,7 +103,7 @@ namespace Abss.Geometry
 		}
 		
 		/// <summary>
-		/// Structure オブジェクト向けに Mesh 要素を結合する。
+		/// Mesh 要素を結合するデリゲートを返す。Structure オブジェクト用。
 		/// </summary>
 		static public Func<MeshElements>
 			BuildStructureWithPalletMeshElements( IEnumerable<_StructurePartBase> parts, Transform tfBase )

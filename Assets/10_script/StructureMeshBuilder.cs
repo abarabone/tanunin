@@ -38,11 +38,17 @@ namespace Abss.StructureObject
 	static class NearObjectBuilder
 	{
 		
-		public static GameObject buildNearObject( ShaderSettings shaders, Mesh mesh,  )
+		public static GameObject BuildNearObject( Mesh mesh, Material material )
 		{
-
 			var go = new GameObject( name: "near" );
-			
+
+			addRigidBody_IfNoHave_( go );
+			addRenderer_( go, mesh, material );
+			addStructure_( go );
+
+			go.SetActive( false );
+
+			return go;
 
 			
 			void addRigidBody_IfNoHave_( GameObject go_ )
@@ -50,7 +56,6 @@ namespace Abss.StructureObject
 				var rb = go.AddComponent<Rigidbody>();
 				rb.isKinematic = true;
 			}
-
 			void addRenderer_( GameObject go_, Mesh mesh_, Material mat_ )
 			{
 				var mf = go_.AddComponent<MeshFilter>();
@@ -59,30 +64,14 @@ namespace Abss.StructureObject
 				var mr = go_.AddComponent<MeshRenderer>();
 				mr.sharedMaterial = mat_;
 			}
-
-			Material makeMaterial_( Texture tex_ )
-			{
-				var mat	= new Material( selectShader( meshBuilder, shaders ) );
-				mat.mainTexture = tex_;
-
-				return mat;
-			}
-
 			void addStructure_( GameObject go_ )
 			{
 				var sr = go.AddComponent<StructureNearRenderingController>();
 				
-				sr.SetVisibilityFlags(  );
 			}
-
-
-			go.SetActive( false );
-
-			return go;
-
 		}
 
-		GameObject buildChildWithCollider( _StructurePart3.enType hitType, Transform tfParent )
+		GameObject BuildChildWithCollider( _StructurePart3.enType hitType, Transform tfParent )
 		{
 
 			var mesh = meshBuilder.hits[ (int)hitType ].mesh;
