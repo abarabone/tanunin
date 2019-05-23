@@ -15,13 +15,16 @@ namespace Abss.Common.Extension
 		{
 			return Enumerable.Zip( src.e1, src.e2, resultSelector );
 		}
-		public static IEnumerable<(T1, T2)> Zip<T1,T2>( in this (IEnumerable<T1> e1, IEnumerable<T2> e2) src )
+		public static IEnumerable<(T1 x, T2 y)>
+			Zip<T1,T2>( in this (IEnumerable<T1> e1, IEnumerable<T2> e2) src )
 		{
 			return Enumerable.Zip(src.e1, src.e2, (x, y)=>(x, y) );
 		}
 
-		public static IEnumerable<Tresult> Zip<T1,T2,T3,Tresult>
-			( this (IEnumerable<T1> e1, IEnumerable<T2> e2, IEnumerable<T3> e3) src, Func<T1,T2,T3,Tresult> resultSelector )
+		public static IEnumerable<Tresult> Zip<T1,T2,T3,Tresult>(
+			this (IEnumerable<T1> e1, IEnumerable<T2> e2, IEnumerable<T3> e3) src,
+			Func<T1,T2,T3,Tresult> resultSelector
+		)
 		{
 			//return src.e1.Zip( src.e2, (x,y)=>(x,y) ).Zip( src.e3, (xy,z)=>resultSelector(xy.x, xy.y, z) );
 			var etor1 = src.e1.GetEnumerator();
@@ -32,11 +35,31 @@ namespace Abss.Common.Extension
 				yield return resultSelector( etor1.Current, etor2.Current, etor3.Current );
 			}
 		}
-		public static IEnumerable<(T1,T2,T3)> Zip<T1,T2,T3>( in this (IEnumerable<T1> e1, IEnumerable<T2> e2, IEnumerable<T3> e3) src )
+		public static IEnumerable<(T1 x,T2 y,T3 z)> Zip<T1,T2,T3>
+			( in this (IEnumerable<T1> e1, IEnumerable<T2> e2, IEnumerable<T3> e3) src )
 		{
 			return src.Zip( (x,y,z)=>(x,y,z) );
 		}
-
+		
+		public static IEnumerable<Tresult> Zip<T1,T2,T3,T4,Tresult>(
+			this (IEnumerable<T1> e1, IEnumerable<T2> e2, IEnumerable<T3> e3, IEnumerable<T4> e4) src,
+			Func<T1,T2,T3,T4,Tresult> resultSelector
+		)
+		{
+			var etor1 = src.e1.GetEnumerator();
+			var etor2 = src.e2.GetEnumerator();
+			var etor3 = src.e3.GetEnumerator();
+			var etor4 = src.e4.GetEnumerator();
+			while( etor1.MoveNext() && etor2.MoveNext() && etor3.MoveNext() && etor4.MoveNext() )
+			{
+				yield return resultSelector( etor1.Current, etor2.Current, etor3.Current, etor4.Current );
+			}
+		}
+		public static IEnumerable<(T1 x,T2 y,T3 z, T4 w)> Zip<T1,T2,T3,T4>
+			( in this (IEnumerable<T1> e1, IEnumerable<T2> e2, IEnumerable<T3> e3, IEnumerable<T4> e4) src )
+		{
+			return src.Zip( (x,y,z,w)=>(x,y,z,w) );
+		}
 	}
 
 	public static class ConversionExtension
