@@ -131,7 +131,7 @@ namespace Abss.Geometry
 			var vertexCountEverySubmeshes = QueryUtility.QueryVertexCountEverySubmeshes( qMesh ).ToList();
 
 			// mat name and hath の配列を取得。
-			var nameAndHashOfMats = QueryUtility.QueryNameAndHashOfMaterials( parts ).ToList();
+			var matsEveryMeshes = QueryUtility.QueryNameAndHashOfMaterialListEveryMeshes( parts ).ToList();
 
 
 			return () => 
@@ -142,11 +142,11 @@ namespace Abss.Geometry
 
 
 				// mat hash → combined mat index に変換する辞書を生成する。
-				var matHashToIndexDict = QueryUtility.ToDictionaryForMaterialHashToIndex( nameAndHashOfMats );
+				var matHashToIndexDict = QueryUtility.ToDictionaryForMaterialHashToIndex( matsEveryMeshes );
 
 				// パレットＩＤをすべての頂点ごとにクエリする。
 				var qPalletsEveryVertices = QueryUtility
-					.QueryePalletEveryVertices( vertexCountEverySubmeshes, matHashArrayEveryParts, matHashToIndexDict )
+					.QueryePalletEveryVertices( vertexCountEverySubmeshes, matsEveryMeshes, matHashToIndexDict )
 					;
 				
 
@@ -227,14 +227,21 @@ namespace Abss.Geometry
 				return qPidPalletPerVertex.ToList();
 			}
 			
+			public static void noiasef( IEnumerable<Mesh> meshes )
+			{
+				var q =
+					from mesh in meshes
+					from x in mesh.
+			}
+
 			/// <summary>
 			/// 各パーツメッシュの持つインデックスをすべて結合し、ひとつの配列にして返す。
 			/// その際各メッシュの頂点数は、次のインデックスのベースとなる。
 			/// また、マテリアル別のサブメッシュも、ひとつに統合される。
 			/// </summary>
-			public static List<int> ToIndicesList(
+			public static List<List<int>> ToIndicesList(
 				IEnumerable<IEnumerable<Vector3>> verticesPerMeshes,
-				IEnumerable<IEnumerable<int>> indicesPerMeshes,
+				IEnumerable<IEnumerable<IEnumerable<int>>> indicesPerSubmeshes,
 				IEnumerable<Matrix4x4> mtParts
 			)
 			{
@@ -359,18 +366,17 @@ namespace Abss.Geometry
 			}
 			
 			/// <summary>
-			/// 全パーツから、それぞれのマテリアルハッシュ配列をすべてクエリする。
+			/// パーツごとに、それぞれのマテリアルハッシュ配列をすべてクエリする。
 			/// </summary>
 			public static IEnumerable<IEnumerable<(string name, int hash)>>
-				QueryNameAndHashOfMaterials( IEnumerable<_StructurePartBase> parts )
+				QueryNameAndHashOfMaterialListEveryMeshes( IEnumerable<_StructurePartBase> parts )
 			{
 				var qMatNameAndHashEveryParts =
 					from pt in parts
 					select pt.GetComponent<MeshRenderer>()?.sharedMaterials into mats
-					select queryNameAndHash_(mats).ToArray()
+					select queryNameAndHash_(mats).ToList()
 					;
-				IEnumerable<(string, int)>
-					queryNameAndHash_( IEnumerable<Material> mats_ ) =>
+				IEnumerable<(string, int)> queryNameAndHash_( IEnumerable<Material> mats_ ) =>
 					from mat in mats_ ?? Enumerable.Empty<Material>()//mats.DefaultIfEmpty()
 					select (mat.name, mat.GetHashCode())
 					;
@@ -382,15 +388,15 @@ namespace Abss.Geometry
 			/// マテリアルの全列挙より重複削除しつつ index を採番し、mat hash -> index の対応辞書を生成する。
 			/// </summary>
 			public static Dictionary<int,int>
-				ToDictionaryForMaterialHashToIndex( IEnumerable<(string,int)> nameAndHashOfMaterials )
+				ToDictionaryForMaterialHashToIndex( IEnumerable<IEnumerable<(string name,int hash)>> nameAndHashOfMaterialsEveryMeshes )
 			{
-				return
-					(
-						from (string name, int hash) mat in nameAndHashOfMaterials.Distinct()
-						orderby mat.name
-						select mat
-					)
-					.Select( (mat,i) => (mat.hash,i) )
+				var qOrderedHash =
+					from mat in nameAndHashOfMaterialsEveryMeshes.SelectMany( mats => mats ).Distinct( mat => mat.hash )
+					orderby mat.name
+					select mat.hash
+					;
+				return qOrderedHash
+					.Select( (hash,i) => (hash,i) )
 					.ToDictionary( x => x.hash, x => x.i )
 					;
 			}
@@ -418,7 +424,7 @@ namespace Abss.Geometry
 						? mesh_.vertexCount
 						: (int)mesh_.GetBaseVertex( isubmesn_ + 1 );
 
-					return (int)( cur - pre );
+					return cur - pre;
 				}
 			}
 
@@ -428,17 +434,21 @@ namespace Abss.Geometry
 			public static IEnumerable<int> QueryePalletEveryVertices
 			(
 				IEnumerable<int> vertexCountEverySubmeshes,
-				IEnumerable<IEnumerable<int>> matHashArrayEveryMeshes,
+				IEnumerable<IEnumerable<(string name, int hash)>> nameAndHashOfMaterialsEveryMeshes,
 				Dictionary<int,int> matHashToIndexDict
 			)
 			{
+				var qHashEverySubmeshes =
+					from matEverySubmeshes in nameAndHashOfMaterialsEveryMeshes
+					from mat in matEverySubmeshes
+					select mat.hash
+					;
 				// 頂点ごとに pallet index
 				// pallet index は 結合後のマテリアルへの添え字
 				// mat idx は、辞書でＩＤを取得して振る
 				// submesh ごとの vertex count で、src mat idx を
 				var qPalletIdx =
-					from matHashEverySubmeshes in matHashArrayEveryMeshes
-					from (int matHash, int vtxCount) xy in (matHashEverySubmeshes, vertexCountEverySubmeshes).Zip()
+					from (int matHash, int vtxCount) xy in (qHashEverySubmeshes, vertexCountEverySubmeshes).Zip()
 					let matIdx = matHashToIndexDict[xy.matHash]
 					from matIdxEveryVertices in Enumerable.Repeat(matIdx, xy.vtxCount)
 					select matIdxEveryVertices

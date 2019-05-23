@@ -71,34 +71,34 @@ namespace Abss.StructureObject
 			}
 		}
 
-		GameObject BuildChildWithCollider( _StructurePart3.enType hitType, Transform tfParent )
-		{
+		//GameObject BuildChildWithCollider( _StructurePart3.enType hitType, Transform tfParent )
+		//{
 
-			var mesh = meshBuilder.hits[ (int)hitType ].mesh;
-
-
-			if( mesh != null )
-			{
-
-				var go = new GameObject( hitType.ToString() );
-
-				go.layer = getPartLayer( hitType );
+		//	var mesh = meshBuilder.hits[ (int)hitType ].mesh;
 
 
-				go.transform.SetParent( tfParent, false );
+		//	if( mesh != null )
+		//	{
 
-				var cd = go.AddComponent<MeshCollider>();
+		//		var go = new GameObject( hitType.ToString() );
 
-				cd.sharedMesh = mesh;
+		//		go.layer = getPartLayer( hitType );
 
 
-				return go;
+		//		go.transform.SetParent( tfParent, false );
 
-			}
+		//		var cd = go.AddComponent<MeshCollider>();
 
-			return null;
+		//		cd.sharedMesh = mesh;
 
-		}
+
+		//		return go;
+
+		//	}
+
+		//	return null;
+
+		//}
 	}
 
 	

@@ -6,6 +6,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using System.Runtime.InteropServices;
 using Abss.Common.Extension;
+using Abss.Geometry;
 
 public class test : _StructurePartBase
 {

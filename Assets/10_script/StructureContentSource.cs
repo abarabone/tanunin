@@ -28,7 +28,7 @@ namespace Abss.StructureObject
 			{
 				if( this.near != null ) return this.near;
 				
-				this.near = 
+				//this.near = 
 				return this.near;
 			}
 			

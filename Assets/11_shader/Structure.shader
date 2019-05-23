@@ -7,7 +7,7 @@ Shader "Custom/Structure"
 	
 	Properties
 	{
-		//_MainTex ("Base (RGB)", 2D) = "white" {}
+		_MainTex ("Base (RGB)", 2D) = "white" {}
 		
 		//_Pallet0 ("Pallet 0", Color) = ( 1, 1, 1, 1 )
 		//_Pallet1 ("Pallet 1", Color) = ( 1, 1, 1, 1 )
