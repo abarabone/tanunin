@@ -432,15 +432,37 @@ namespace Abss.Geometry
 			}
 
 			/// <summary>
-			/// 頂点ごとのマテリアルハッシュをクエリする。
+			/// 頂点ごとのマテリアルＩＤをクエリする。
 			/// </summary>
-			public static void Query( IEnumerable<Mesh> meshes )
+			public static IEnumerable<int> QueryMatIdxEveryVertices
+				( IEnumerable<int> vertexCountEverySubmeshes, IEnumerable<Material> materials, Dictionary<int,int> matHashToIdxDict )
 			{
-				
+
+
+			}
+
+			/// <summary>
+			/// サブメッシュごとのマテリアルＩＤをクエリする。
+			/// </summary>
+			public static IEnumerable<int> QueryMatIndexEverySubmeshes
+				( IEnumerable<int> matHashesEverySubmeshes, Dictionary<int,int> matHashToIdxDict )
+			{
+				return
+					from hash in matHashesEverySubmeshes
+					select matHashToIdxDict[ hash ]
+					;
 			}
 
 			/// <summary>
 			/// 
+			/// </summary>
+			public static void Query()
+			{
+
+			}
+
+			/// <summary>
+			/// サブメッシュごとの頂点数をクエリする。
 			/// </summary>
 			public static IEnumerable<int> QueryVertexCountEverySubmeshes( IEnumerable<Mesh> meshes )
 			{

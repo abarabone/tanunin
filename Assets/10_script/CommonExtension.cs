@@ -62,18 +62,18 @@ namespace Abss.Common.Extension
 		}
 
 
-		public static IEnumerable<IEnumerable<T>> ToConversionRecursive<T>
-			( this IEnumerable<IEnumerable<T>> src, Func<IEnumerable<object>,IEnumerable<object>> converter )
-		{
-			var res = src.Select( converter );
-			if( !(typeof(T) is IEnumerable<object>) ) return res;
+		//public static IEnumerable<IEnumerable<T>> ToConversionRecursive<T>
+		//	( this IEnumerable<IEnumerable<T>> src, Func<IEnumerable<object>,IEnumerable<object>> converter )
+		//{
+		//	var res = src.Select( converter );
+		//	if( !(typeof(T) is IEnumerable<object>) ) return res;
 			
-			foreach( IEnumerable<object> i in res )
-			{
+		//	foreach( IEnumerable<object> i in res )
+		//	{
 				
-			}
-			return res;
-		}
+		//	}
+		//	return res;
+		//}
 	}
 
 	public static class ConversionExtension
