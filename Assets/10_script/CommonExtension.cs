@@ -60,6 +60,20 @@ namespace Abss.Common.Extension
 		{
 			return src.Zip( (x,y,z,w)=>(x,y,z,w) );
 		}
+
+
+		public static IEnumerable<IEnumerable<T>> ToConversionRecursive<T>
+			( this IEnumerable<IEnumerable<T>> src, Func<IEnumerable<object>,IEnumerable<object>> converter )
+		{
+			var res = src.Select( converter );
+			if( !(typeof(T) is IEnumerable<object>) ) return res;
+			
+			foreach( IEnumerable<object> i in res )
+			{
+				
+			}
+			return res;
+		}
 	}
 
 	public static class ConversionExtension

@@ -432,6 +432,14 @@ namespace Abss.Geometry
 			}
 
 			/// <summary>
+			/// 頂点ごとのマテリアルハッシュをクエリする。
+			/// </summary>
+			public static void Query( IEnumerable<Mesh> meshes )
+			{
+				
+			}
+
+			/// <summary>
 			/// 
 			/// </summary>
 			public static IEnumerable<int> QueryVertexCountEverySubmeshes( IEnumerable<Mesh> meshes )
