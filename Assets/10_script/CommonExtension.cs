@@ -75,6 +75,11 @@ namespace Abss.Common.Extension
 		//{
 		//	return src.ToList();
 		//}
+
+		public static IEnumerable<T> EmptyIfNull<T>( this IEnumerable<T> src )
+		{
+			return src ?? Enumerable.Empty<T>();
+		}
 	}
 
 	public static class ConversionExtension
