@@ -228,49 +228,110 @@ namespace Abss.Geometry
 			}
 			
 			/// <summary>
-			/// 各パーツメッシュの持つインデックスをすべて結合し、ひとつの配列にして返す。
+			/// 各パーツメッシュの持つインデックスを結合し、最終的なサブメッシュごとの配列にして返す。
 			/// その際各メッシュの頂点数は、次のインデックスのベースとなる。
 			/// また、マテリアル別のサブメッシュも、ひとつに統合される。
 			/// </summary>
 			public static List<List<int>> ToIndicesList(
-				IEnumerable<IEnumerable<Vector3>> verticesEveryMeshes,
-				IEnumerable<IEnumerable<IEnumerable<int>>> indicesEverySubmeshesEveryMeshes,
+				IEnumerable<Vector3[]> verticesEveryMeshes,
+				IEnumerable<IEnumerable<int[]>> indicesEverySubmeshesEveryMeshes,
 				IEnumerable<IEnumerable<(string,int hash)>> matNameAndHashEverySubmeshesEveryMeshes,
-				Dictionary<int,int> matHashToIndexDict,
+				IEnumerable<Matrix4x4> mtPartEveryMeshes,
+				Dictionary<int,int> matHashToIndexDict
+			)
+			{
+				var idxsss = indicesEverySubmeshesEveryMeshes;
+				var matss = matNameAndHashEverySubmeshesEveryMeshes;
+				var mts = mtPartEveryMeshes;
+
+				var qBaseVtxs = queryBaseVertexEveryMeshes_( verticesEveryMeshes );
+
+				var qIdxs =
+				// メッシュ
+					from xyzw_ in (idxsss, matss, mts, qBaseVtxs).Zip()
+					let src = (idxss:xyzw_.x, mats:xyzw_.y, mt:xyzw_.z, baseVtx:xyzw_.w)
+				// サブメッシュ
+					from dstSubmesh in matHashToIndexDict// ソートされているとする
+					let srcSubmesh = (src.mats, src.idxss).Zip( (x,y)=>(mat:x, idxs:y) )
+						.FirstOrDefault( x => x.mat.hash == dstSubmesh.Key )
+				// インデックス
+					select
+						from idx in srcSubmesh.idxs ?? reverseEvery3_IfMinusScale_( srcSubmesh.idxs, src.mt )
+						select src.baseVtx + idx;
+
+				return qIdxs.ToListRecursive2();
+
+
+				IEnumerable<int> queryBaseVertexEveryMeshes_( IEnumerable<Vector3[]> vtxsEveryMeshes_ )
+				{
+					// 各メッシュに対する、頂点インデックスのベースオフセットをクエリする。
+					var qVtxCount = vtxsEveryMeshes_	// まずは「mesh n の頂点数」の集合をクエリする。
+						.Select( vtxs => vtxs.Count() )
+						.Scan( seed:0, (pre,cur) => pre + cur )
+						;
+					return Enumerable.Repeat(0,1).Concat( qVtxCount );
+						// { 0 } + { mesh 0 の頂点数, mesh 1 の頂点数, ... }
+				}
+
+				IEnumerable<int> reverseEvery3_IfMinusScale_( IEnumerable<int> indices_, Matrix4x4 mtPart_ )
+				{
+					if( isMinusScale_(in mtPart_) ) return reverseEvery3_(indices_);
+
+					return indices_;
+				}
+
+				bool isMinusScale_( in Matrix4x4 mt )
+				{
+					var up = Vector3.Cross( mt.GetRow( 0 ), mt.GetRow( 2 ) );
+					return Vector3.Dot( up, mt.GetRow( 1 ) ) > 0.0f;
+					//var scl = tf.lossyScale;
+					//return scl.x * scl.y * scl.z < 0.0f;
+				}
+
+				IEnumerable<int> reverseEvery3_( IEnumerable<int> indecies_ )
+				{
+					using( var e = indecies_.GetEnumerator() )
+					{
+						while( e.MoveNext() )
+						{
+							var i0 = e.Current; e.MoveNext();
+							var i1 = e.Current; e.MoveNext();
+							var i2 = e.Current;
+							yield return i0;
+							yield return i2;
+							yield return i1;
+						}
+					}
+				}
+			}
+
+			
+			/// <summary>
+			/// 各パーツメッシュの持つインデックスをすべて結合し、ひとつの配列にして返す。
+			/// その際各メッシュの頂点数は、次のインデックスのベースとなる。
+			/// また、マテリアル別のサブメッシュも、ひとつに統合される。
+			/// </summary>
+			public static List<int> ToIndicesList__(
+				IEnumerable<IEnumerable<Vector3>> verticesPerMeshes,
+				IEnumerable<IEnumerable<int>> indicesPerMeshes,
 				IEnumerable<Matrix4x4> mtParts
 			)
 			{
 				// 各メッシュに対する、頂点インデックスのベースオフセットをクエリする。
-				var qVtxCount = verticesEveryMeshes	// まずは「mesh n の頂点数」の集合をクエリする。
+				var qVtxCount = verticesPerMeshes	// まずは「mesh n の頂点数」の集合をクエリする。
 					.Select( vtxs => vtxs.Count() )
 					.Scan( seed:0, (pre,cur) => pre + cur )
 					;
 				var qBaseVertex = Enumerable.Repeat(0,1).Concat( qVtxCount );
 					// { 0 } + { mesh 0 の頂点数, mesh 1 の頂点数, ... }
 				
-				var idxsss = indicesEverySubmeshesEveryMeshes;
-				var matss = matNameAndHashEverySubmeshesEveryMeshes;
-
 				var qIndex =
-					from xyzw_ in (idxsss, matss, mtParts, qBaseVertex).Zip()
-					let xyzw = (idxss:xyzw_.x, mats:xyzw_.y, mt:xyzw_.z, baseVtx:xyzw_.w)
-					from idxs in xyzw.mats.Contains(hash)
-					from idx in reverseEvery3_IfMinusScale_( idxs, xyzw.mt )
-					select xyzw.baseVtx + idx;
+					from (IEnumerable<int> idxs, Matrix4x4 mt, int baseVtx) xyz in (indicesPerMeshes, mtParts, qBaseVertex).Zip()
+					from index in reverseEvery3_IfMinusScale_( xyz.idxs, xyz.mt )
+					select xyz.baseVtx + index;
 
 				return qIndex.ToList();
 
-
-				IEnumerable<int> getIdxs(
-					IEnumerable<IEnumerable<int>> idxss, IEnumerable<(string,int hash)> mats,
-					Dictionary<int,int> midic_
-				)
-				{
-					from matHash in midic_.Select( x => x.Key )
-					let isubmesh = mats.Where( x => x.hash == matHash ).First().
-					let idxs = 
-
-				}
 
 				IEnumerable<int> reverseEvery3_IfMinusScale_( IEnumerable<int> indices_, Matrix4x4 mtPart_ )
 				{
@@ -377,37 +438,32 @@ namespace Abss.Geometry
 			}
 			
 			/// <summary>
-			/// 
+			/// メッシュごと、サブメッシュごとにインデックス配列をクエリする。
 			/// </summary>
-			public static IEnumerable<List<int[]>>
+			public static IEnumerable<IEnumerable<int[]>>
 				QueryIndicesEverySubmeshesEveryMeshes( IEnumerable<Mesh> meshes )
 			{
-				var qIdxsEverySubmeshesEveryMeshes =
+				return
 					from mesh in meshes
-					select (
+					select
 						from isubmesh in Enumerable.Repeat( 0, mesh.subMeshCount )
 						select mesh.GetTriangles( isubmesh )
-					).ToList()
 					;
-
-				return qIdxsEverySubmeshesEveryMeshes;
 			}
 
 			/// <summary>
 			/// パーツごとに、それぞれのマテリアルハッシュ配列をすべてクエリする。
 			/// </summary>
-			public static IEnumerable<List<(string name, int hash)>>
+			public static IEnumerable<IEnumerable<(string name, int hash)>>
 				QueryNameAndHashOfMaterialListEveryMeshes( IEnumerable<_StructurePartBase> parts )
 			{
 				var qMatNameAndHashEveryParts =
 					from pt in parts
 					select pt.GetComponent<MeshRenderer>()?.sharedMaterials into mats
-					select queryNameAndHash_(mats).ToList()
-					;
-				IEnumerable<(string, int)> queryNameAndHash_( IEnumerable<Material> mats_ ) =>
-					from mat in mats_ ?? Enumerable.Empty<Material>()//mats.DefaultIfEmpty()
-					select (mat.name, mat.GetHashCode())
-					;
+					select
+						from mat in mats ?? Enumerable.Empty<Material>()//mats.DefaultIfEmpty()
+						select (mat.name, mat.GetHashCode())
+						;
 
 				return qMatNameAndHashEveryParts;
 			}

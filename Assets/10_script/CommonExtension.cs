@@ -61,18 +61,19 @@ namespace Abss.Common.Extension
 			return src.Zip( (x,y,z,w)=>(x,y,z,w) );
 		}
 
-
-		//public static IEnumerable<IEnumerable<T>> ToConversionRecursive<T>
-		//	( this IEnumerable<IEnumerable<T>> src, Func<IEnumerable<object>,IEnumerable<object>> converter )
+		
+		public static List<List<List<T>>> ToListRecursive3<T>
+			( this IEnumerable<IEnumerable<IEnumerable<T>>> src )
+		{
+			return src.Select( x => x.ToListRecursive2() ).ToList();
+		}
+		public static List<List<T>> ToListRecursive2<T>( this IEnumerable<IEnumerable<T>> src )
+		{
+			return src.Select( x => x.ToList() ).ToList();
+		}
+		//public static List<T> ToListRecursive<T>( this IEnumerable<T> src )
 		//{
-		//	var res = src.Select( converter );
-		//	if( !(typeof(T) is IEnumerable<object>) ) return res;
-			
-		//	foreach( IEnumerable<object> i in res )
-		//	{
-				
-		//	}
-		//	return res;
+		//	return src.ToList();
 		//}
 	}
 
