@@ -15,8 +15,9 @@ public class test : _StructurePartBase
     async void Start()
     {
 		var parts = this.GetComponentsInChildren<test>();
-        var results = await Task.WhenAll( Task.Run(MeshCombiner.BuildStructureWithPalletMeshElements( parts, this.transform )) );
-		
+		var results = await Task.WhenAll( Task.Run( MeshCombiner.BuildStructureWithPalletMeshElements( parts, this.transform ) ) );
+		//var results = await Task.WhenAll( Task.Run(MeshCombiner.BuildNormalMeshElements( parts, this.transform )) );
+
 		var go = results
 			.First()
 			.CreateUnlitMesh().ToWriteOnly()

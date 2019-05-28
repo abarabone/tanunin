@@ -25,9 +25,10 @@ namespace Abss.Geometry
 		public List<Color32>	Colors;
 
 		// 間接的に必要な要素
-		//public IEnumerable<Mesh>	MeshesQuery;
 		public List<Matrix4x4>		MtParts;
 		public Matrix4x4			MtBaseInv;
+		public List<List<(string,int)>>	matNameAndHashLists;
+		public Dictionary<int,int>		matHashToIdxDict;
 
 		/// <summary>
 		/// Mesh を生成する。
@@ -66,22 +67,34 @@ namespace Abss.Geometry
 		/// Mesh 要素を結合するデリゲートを返す。位置とＵＶのみ。
 		/// </summary>
 		static public Func<MeshElements>
-			BuildUnlitMeshElements( IEnumerable<MonoBehaviour> parts, Transform tfBase )
+			BuildUnlitMeshElements( IEnumerable<MonoBehaviour> parts, Transform tfBase, bool isCombineMaterials )
 		{
 			var qMesh = VertexUtility.QueryMesh_EveryObjects( parts );
 
 			var vtxss = ( from mesh in qMesh select mesh.vertices ).ToList();
 			var uvss = ( from mesh in qMesh select mesh.uv ).ToList();
-			var idxsss = IndexUtility.QueryIndices_EverySubmeshesEveryMeshes( qMesh );
+			var idxsss = IndexUtility.QueryIndices_EverySubmeshesEveryMeshes( qMesh ).ToListRecursive2();
 
 			var mtBaseInv = tfBase.worldToLocalMatrix;
 			var mtParts = ( from pt in parts select pt.transform.localToWorldMatrix ).ToList();
 
+			var matNameAndHashLists = isCombineMaterials
+				? MaterialUtility.QueryMatNameAndHash_EverySubmeshesEveryMeshes( parts ).ToListRecursive2()
+				: null;
+			
+
 			return () => new MeshElements
 			{
+				matNameAndHashLists = matNameAndHashLists,
+				matHashToIdxDict = isCombineMaterials
+					? MaterialUtility.ToDictionaryForMaterialHashToIndex( matNameAndHashLists )
+					: null,
+
 				Vertecies = ConvertUtility.ToVerticesList( vtxss, mtParts, mtBaseInv ),
 				Uvs = uvss.SelectMany( uvs => uvs ).ToList(),
-				IndeciesEverySubmeshes = ConvertUtility.ToIndicesList( vtxss, idxsss, mtParts ),
+				IndeciesEverySubmeshes = isCombineMaterials
+					? ConvertUtility.ToIndicesList( vtxss, idxsss, matNameAndHashLists, mtParts, matHashToIndexDict )
+					: ConvertUtility.ToIndicesList( vtxss, idxsss, mtParts ),
 
 				MtBaseInv = mtBaseInv,
 				MtParts = mtParts,
@@ -138,7 +151,7 @@ namespace Abss.Geometry
 			var vertexCount_EverySubmeshes = VertexUtility.QueryVertexCount_EverySubmeshes( qMesh ).ToList();
 
 			// mat name and hath の配列を取得。
-			var mats_EveryMeshes = MaterialUtility.QueryNameAndHashOfMaterialList_EveryMeshes( parts ).ToList();
+			var mats_EveryMeshes = MaterialUtility.QueryMatNameAndHash_EverySubmeshesEveryMeshes( parts ).ToListRecursive2();
 
 
 			return () => 
@@ -155,8 +168,7 @@ namespace Abss.Geometry
 
 				// パレットＩＤをすべての頂点ごとにクエリする。
 				var qPallets_EveryVertices = VertexUtility
-					.QueryePallet_EveryVertices( vertexCount_EverySubmeshes, mats_EveryMeshes, matHashToIndexDict )
-					;
+					.QueryePallet_EveryVertices( vertexCount_EverySubmeshes, mats_EveryMeshes, matHashToIndexDict );
 				
 
 				var me = f();
@@ -260,15 +272,24 @@ namespace Abss.Geometry
 					from xyzw_ in (idxsss, matss, mts, qBaseVtxs).Zip()
 					let src = (idxss:xyzw_.x, mats:xyzw_.y, mt:xyzw_.z, baseVtx:xyzw_.w)
 				// サブメッシュ（結合後の材質をベースに巡回）
-					from dstSubmesh in matHashToIndexDict// index 順にソートされているとする
-					let srcSubmesh = (src.mats, src.idxss).Zip( (x,y)=>(mat:x, idxs:y) )
-						.FirstOrDefault( x => x.mat.hash == dstSubmesh.Key )// 見つからなければ idxs:null
+					from idxs in findIdxs_( src.idxss, src.mats, matHashToIndexDict ).EmptyIfNull()
 				// インデックス
 					select
-						from idx in IndexUtility.ReverseEvery3_IfMinusScale( srcSubmesh.idxs.EmptyIfNull(), src.mt )
+						from idx in IndexUtility.ReverseEvery3_IfMinusScale( idxs, src.mt )
 						select src.baseVtx + idx;
 
 				return qIdxs.ToListRecursive2();
+
+				IEnumerable<int[]> findIdxs_
+					( IEnumerable<int[]> idxss, IEnumerable<(string,int hash)> mats, Dictionary<int,int> hashToIdxDict )
+				{
+					return
+						from dstSubmesh in hashToIdxDict// index 順にソートされているとする
+						select (mats, idxss).Zip( (x,y)=>(mat:x, idxs:y) )
+							.FirstOrDefault( x => x.mat.hash == dstSubmesh.Key )// 見つからなければ idxs:null
+							.idxs
+						;
+				}
 			}
 
 			/// <summary>
@@ -471,13 +492,13 @@ namespace Abss.Geometry
 			/// </summary>
 			public static IEnumerable<int> QueryePallet_EveryVertices
 			(
-				IEnumerable<int> vertexCountEverySubmeshes,
-				IEnumerable<IEnumerable<(string name, int hash)>> nameAndHashOfMaterialsEveryMeshes,
+				IEnumerable<int> vertexCount_EverySubmeshes,
+				IEnumerable<IEnumerable<(string name, int hash)>> nameAndHashOfMaterials_EveryMeshes,
 				Dictionary<int,int> matHashToIndexDict
 			)
 			{
-				var qHashEverySubmeshes =
-					from matEverySubmeshes in nameAndHashOfMaterialsEveryMeshes
+				var qHash_EverySubmeshes =
+					from matEverySubmeshes in nameAndHashOfMaterials_EveryMeshes
 					from mat in matEverySubmeshes
 					select mat.hash
 					;
@@ -486,7 +507,7 @@ namespace Abss.Geometry
 				// mat idx は、辞書でＩＤを取得して振る
 				// submesh ごとの vertex count で、src mat idx を
 				var qPalletIdx =
-					from (int matHash, int vtxCount) xy in (qHashEverySubmeshes, vertexCountEverySubmeshes).Zip()
+					from (int matHash, int vtxCount) xy in (qHash_EverySubmeshes, vertexCount_EverySubmeshes).Zip()
 					let matIdx = matHashToIndexDict[xy.matHash]
 					from matIdxEveryVertices in Enumerable.Repeat(matIdx, xy.vtxCount)
 					select matIdxEveryVertices
@@ -503,7 +524,7 @@ namespace Abss.Geometry
 			/// パーツごとに、それぞれのマテリアルハッシュ配列をすべてクエリする。
 			/// </summary>
 			public static IEnumerable<IEnumerable<(string name, int hash)>>
-				QueryNameAndHashOfMaterialList_EveryMeshes( IEnumerable<_StructurePartBase> parts )
+				QueryMatNameAndHash_EverySubmeshesEveryMeshes( IEnumerable<MonoBehaviour> parts )
 			{
 				var qMatNameAndHashEveryParts =
 					from pt in parts
@@ -534,37 +555,7 @@ namespace Abss.Geometry
 					.ToDictionary( x => x.hash, x => x.i )
 					;
 			}
-
-			/// <summary>
-			/// 頂点ごとのマテリアルＩＤをクエリする。
-			/// </summary>
-			public static IEnumerable<int> QueryMatIdx_EveryVertices
-				( IEnumerable<int> vertexCountEverySubmeshes, IEnumerable<Material> materials, Dictionary<int,int> matHashToIdxDict )
-			{
-
-
-			}
-
-			/// <summary>
-			/// サブメッシュごとのマテリアルＩＤをクエリする。
-			/// </summary>
-			public static IEnumerable<int> QueryMatIndexEverySubmeshes
-				( IEnumerable<int> matHashes_EverySubmeshes, Dictionary<int,int> matHashToIdxDict )
-			{
-				return
-					from hash in matHashes_EverySubmeshes
-					select matHashToIdxDict[ hash ]
-					;
-			}
-
-			/// <summary>
-			/// 
-			/// </summary>
-			public static void Query()
-			{
-
-			}
-
+			
 		}
 
 	}
