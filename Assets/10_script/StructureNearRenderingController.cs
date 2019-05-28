@@ -61,6 +61,8 @@ namespace Abss.StructureObject
 			this.rendererOfStructure = this.GetComponent<Renderer>();
 
 			this.mpb = new MaterialPropertyBlock();
+			var c = new Vector4[] { new Vector4(1,0,0,1), new Vector4(1,1,0,1), new Vector4(1,1,1,1), new Vector4(0,1,1,1) };
+			mpb.SetVectorArray( "_Pallet", c );
 
 			this.visibilityFlagObserver
 				.BatchFrame()// 3, FrameCountType.EndOfFrame )

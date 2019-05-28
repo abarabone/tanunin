@@ -127,9 +127,9 @@ Shader "Custom/Structure"
 					int4	id = D3DCOLORtoUBYTE4(v.id.rgba);
 					
 					int palletIdx = id.a;
-					int arrIdx = 0;// id.r;
-					int elmIdx = 0;// id.g;
-					int maskOfIsVisible = 1 << 0;// id.b;
+					int arrIdx = id.r;
+					int elmIdx = id.g;
+					int maskOfIsVisible = 1 << id.b;
 
 					bool isVisible = ( isVisibleFlags[arrIdx][elmIdx] & maskOfIsVisible ) != 0;
 					//bool isVisible = (isVisibleFlags & maskOfIsVisible) != 0;
