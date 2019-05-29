@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using Abss.StructureObject;
 using System.Linq;
+using Abss.Common.Extension;
 
 namespace Abss.Geometry
 {
@@ -11,11 +12,13 @@ namespace Abss.Geometry
 
 		public static Texture PackTextureAndReUv( IEnumerable<GameObject> targetObjects )
 		{
+			var matHashToIdxDict = targetObjects
+				.To(MaterialUtility.QueryMatNameAndHash_EverySubmeshesEveryMeshes)
+				.To(MaterialUtility.ToDictionaryForMaterialHashToIndex);
 
-			var qNameAndHashMats = MaterialUtility.QueryMatNameAndHash_EverySubmeshesEveryMeshes( targetObjects );
-			var matHashToIdxDict = MaterialUtility.ToDictionaryForMaterialHashToIndex( qNameAndHashMats );
-
-			var aa = VertexUtility.qu
+			var vtxCount_EverySubmeshes = targetObjects
+				.To(VertexUtility.QueryMesh_EveryObjects)
+				.To(VertexUtility.QueryVertexCount_EverySubmeshes);
 
 			var q =
 				from obj in targetObjects

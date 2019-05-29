@@ -89,6 +89,12 @@ namespace Abss.Geometry
 					? ConvertUtility.ToIndicesList( vtxss, idxsss, mtObjects )
 					: ConvertUtility.ToIndicesList( vtxss, idxsss, mtObjects, matNameAndHashLists, matHashToIdxDict );
 
+				//var idxss =
+				//	matNameAndHashLists
+				//	?.To(MaterialUtility.ToDictionaryForMaterialHashToIndex)
+				//	?.To( x => ConvertUtility.ToIndicesList( vtxss, idxsss, mtObjects, matNameAndHashLists, x ) )
+				//	?? ConvertUtility.ToIndicesList( vtxss, idxsss, mtObjects );
+
 				return new MeshElements
 				{
 					Vertecies = ConvertUtility.ToVerticesList( vtxss, mtObjects, mtBaseInv ),
@@ -414,7 +420,7 @@ namespace Abss.Geometry
 					pt.GetComponent<SkinnedMeshRenderer>()?.sharedMesh
 				;
 
-			return qMesh;
+			return qMesh.Where( mesh => mesh != null );
 		}
 
 		/// <summary>

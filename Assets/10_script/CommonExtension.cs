@@ -133,4 +133,22 @@ namespace Abss.Common.Extension
 			[FieldOffset(0)] public int IntValue;
 		}
 	}
+
+	public static class FuncExtension
+	{ 
+		public static Tdst To<Tsrc,Tdst>( this Tsrc src, Func<Tsrc,Tdst> nextfunction )
+		{
+			return nextfunction( src );
+		}
+		public static Tdst To<Tsrc0,Tsrc1,Tdst>( this (Tsrc0 v0, Tsrc1 v1) src, Func<Tsrc0,Tsrc1,Tdst> nextfunction )
+		{
+			return nextfunction( src.v0, src.v1 );
+		}
+		public static Tdst To<Tsrc0,Tsrc1,Tsrc2,Tdst>
+			( this (Tsrc0 v0, Tsrc1 v1, Tsrc2 v2) src, Func<Tsrc0,Tsrc1,Tsrc2,Tdst> nextfunction )
+		{
+			return nextfunction( src.v0, src.v1, src.v2 );
+		}
+	}
+
 }
