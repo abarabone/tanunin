@@ -25,7 +25,7 @@ namespace Abss.Geometry
 		public List<Color32>	Colors;
 
 		// 間接的に必要な要素
-		public List<Matrix4x4>		MtParts;
+		public List<Matrix4x4>		mtObjects;
 		public Matrix4x4			MtBaseInv;
 
 		/// <summary>
@@ -64,20 +64,20 @@ namespace Abss.Geometry
 		/// Mesh 要素を結合するデリゲートを返す。位置とＵＶのみ。
 		/// </summary>
 		static public Func<MeshElements>
-			BuildUnlitMeshElements( IEnumerable<MonoBehaviour> parts, Transform tfBase, bool isCombineSubMeshes = true )
+			BuildUnlitMeshElements( IEnumerable<GameObject> gameObjects, Transform tfBase, bool isCombineSubMeshes = true )
 		{
-			var qMesh = VertexUtility.QueryMesh_EveryObjects( parts );
+			var qMesh = VertexUtility.QueryMesh_EveryObjects( gameObjects );
 
 			var vtxss = ( from mesh in qMesh select mesh.vertices ).ToList();
 			var uvss = ( from mesh in qMesh select mesh.uv ).ToList();
 			var idxsss = IndexUtility.QueryIndices_EverySubmeshesEveryMeshes( qMesh ).ToListRecursive2();
 
 			var mtBaseInv = tfBase.worldToLocalMatrix;
-			var mtParts = ( from pt in parts select pt.transform.localToWorldMatrix ).ToList();
+			var mtObjects = ( from pt in gameObjects select pt.transform.localToWorldMatrix ).ToList();
 
 			var matNameAndHashLists = isCombineSubMeshes
 				? null
-				: MaterialUtility.QueryMatNameAndHash_EverySubmeshesEveryMeshes( parts ).ToListRecursive2();
+				: MaterialUtility.QueryMatNameAndHash_EverySubmeshesEveryMeshes( gameObjects ).ToListRecursive2();
 			
 
 			return () =>
@@ -85,19 +85,18 @@ namespace Abss.Geometry
 				var matHashToIdxDict = isCombineSubMeshes
 					? null
 					: MaterialUtility.ToDictionaryForMaterialHashToIndex( matNameAndHashLists );
-
 				var idxss = isCombineSubMeshes
-					? ConvertUtility.ToIndicesList( vtxss, idxsss, mtParts )
-					: ConvertUtility.ToIndicesList( vtxss, idxsss, mtParts, matNameAndHashLists, matHashToIdxDict );
+					? ConvertUtility.ToIndicesList( vtxss, idxsss, mtObjects )
+					: ConvertUtility.ToIndicesList( vtxss, idxsss, mtObjects, matNameAndHashLists, matHashToIdxDict );
 
 				return new MeshElements
 				{
-					Vertecies = ConvertUtility.ToVerticesList( vtxss, mtParts, mtBaseInv ),
+					Vertecies = ConvertUtility.ToVerticesList( vtxss, mtObjects, mtBaseInv ),
 					Uvs = uvss.SelectMany( uvs => uvs ).ToList(),
 					IndeciesEverySubmeshes = idxss,
 
 					MtBaseInv = mtBaseInv,
-					MtParts = mtParts,
+					mtObjects = mtObjects,
 				};
 			};
 		}
@@ -107,11 +106,11 @@ namespace Abss.Geometry
 		/// Mesh 要素を結合するデリゲートを返す。位置とＵＶと法線。
 		/// </summary>
 		static public Func<MeshElements>
-			BuildNormalMeshElements( IEnumerable<MonoBehaviour> parts, Transform tfBase, bool isCombineSubMeshes )
+			BuildNormalMeshElements( IEnumerable<GameObject> gameObjects, Transform tfBase, bool isCombineSubMeshes )
 		{
-			var f = BuildUnlitMeshElements( parts, tfBase, isCombineSubMeshes );
+			var f = BuildUnlitMeshElements( gameObjects, tfBase, isCombineSubMeshes );
 
-			var qMesh = VertexUtility.QueryMesh_EveryObjects( parts );
+			var qMesh = VertexUtility.QueryMesh_EveryObjects( gameObjects );
 
 			var nmss = VertexUtility.QueryNormals_EveryMeshes( qMesh ).ToList();
 			
@@ -119,7 +118,7 @@ namespace Abss.Geometry
 			{
 				var me = f();
 
-				me.Normals = ConvertUtility.ToNormalsList( nmss, me.MtParts, me.MtBaseInv );
+				me.Normals = ConvertUtility.ToNormalsList( nmss, me.mtObjects, me.MtBaseInv );
 
 				return me;
 			};
@@ -132,9 +131,11 @@ namespace Abss.Geometry
 		static public Func<MeshElements> BuildStructureWithPalletMeshElements
 			( IEnumerable<_StructurePartBase> parts, Transform tfBase )
 		{
-			var f = BuildNormalMeshElements( parts, tfBase, isCombineSubMeshes:true );
+			var gos = from part in parts select part.gameObject;
 
-			var qMesh = VertexUtility.QueryMesh_EveryObjects( parts );
+			var f = BuildNormalMeshElements( gos, tfBase, isCombineSubMeshes:true );
+
+			var qMesh = VertexUtility.QueryMesh_EveryObjects( gos );
 
 
 			// パーツＩＤとパレットＩＤをそれぞれ生成し、Color32 にパックする。
@@ -153,7 +154,7 @@ namespace Abss.Geometry
 
 			// mat name and hath の配列を取得。
 			var mats_EveryMeshes =
-				MaterialUtility.QueryMatNameAndHash_EverySubmeshesEveryMeshes( parts ).ToListRecursive2();
+				MaterialUtility.QueryMatNameAndHash_EverySubmeshesEveryMeshes( gos ).ToListRecursive2();
 
 
 			return () => 
@@ -194,10 +195,10 @@ namespace Abss.Geometry
 		/// 
 		/// </summary>
 		public static List<Vector3> ToVerticesList
-			( IEnumerable<IEnumerable<Vector3>> verticesPerMeshes, IEnumerable<Matrix4x4> mtParts, Matrix4x4 mtBaseInv )
+			( IEnumerable<IEnumerable<Vector3>> verticesPerMeshes, IEnumerable<Matrix4x4> mtObjects, Matrix4x4 mtBaseInv )
 		{
 			var qVertex =
-				from xy in (verticesPerMeshes, mtParts).Zip( (x,y)=>(vtxs:x, mt:y) )
+				from xy in (verticesPerMeshes, mtObjects).Zip( (x,y)=>(vtxs:x, mt:y) )
 				let mt = xy.mt * mtBaseInv
 				from vtx in xy.vtxs
 				select mt.MultiplyPoint3x4( vtx )
@@ -210,10 +211,10 @@ namespace Abss.Geometry
 		/// 
 		/// </summary>
 		public static List<Vector3> ToNormalsList
-			( IEnumerable<IEnumerable<Vector3>> normalsPerMeshes, IEnumerable<Matrix4x4> mtParts, Matrix4x4 mtBaseInv )
+			( IEnumerable<IEnumerable<Vector3>> normalsPerMeshes, IEnumerable<Matrix4x4> mtObjects, Matrix4x4 mtBaseInv )
 		{
 			var qNormal =
-				from xy in (normalsPerMeshes, mtParts).Zip( (x,y)=>(nms:x, mt:y) )
+				from xy in (normalsPerMeshes, mtObjects).Zip( (x,y)=>(nms:x, mt:y) )
 				let mt = xy.mt * mtBaseInv
 				from nm in xy.nms
 				select mt.MultiplyVector( nm )
@@ -347,10 +348,10 @@ namespace Abss.Geometry
 		/// <summary>
 		/// 
 		/// </summary>
-		public static IEnumerable<int> QueryBaseVertex_EveryMeshes( IEnumerable<Vector3[]> vtxsEveryMeshes_ )
+		public static IEnumerable<int> QueryBaseVertex_EveryMeshes( IEnumerable<Vector3[]> vtxsEveryMeshes )
 		{
 			// 各メッシュに対する、頂点インデックスのベースオフセットをクエリする。
-			var qVtxCount = vtxsEveryMeshes_	// まずは「mesh n の頂点数」の集合をクエリする。
+			var qVtxCount = vtxsEveryMeshes	// まずは「mesh n の頂点数」の集合をクエリする。
 				.Select( vtxs => vtxs.Count() )
 				.Scan( seed:0, (pre,cur) => pre + cur )
 				;
@@ -361,11 +362,11 @@ namespace Abss.Geometry
 		/// <summary>
 		/// 
 		/// </summary>
-		public static IEnumerable<int> ReverseEvery3_IfMinusScale( IEnumerable<int> indices_, Matrix4x4 mtPart_ )
+		public static IEnumerable<int> ReverseEvery3_IfMinusScale( IEnumerable<int> indices, Matrix4x4 mtObject )
 		{
-			if( isMinusScale_(in mtPart_) ) return reverseEvery3_(indices_);
+			if( isMinusScale_(in mtObject) ) return reverseEvery3_(indices);
 
-			return indices_;
+			return indices;
 
 			bool isMinusScale_( in Matrix4x4 mt )
 			{
@@ -403,10 +404,10 @@ namespace Abss.Geometry
 		/// <summary>
 		/// 
 		/// </summary>
-		public static IEnumerable<Mesh> QueryMesh_EveryObjects( IEnumerable<MonoBehaviour> parts )
+		public static IEnumerable<Mesh> QueryMesh_EveryObjects( IEnumerable<GameObject> gameObjects )
 		{
 			var qMesh =
-				from pt in parts
+				from pt in gameObjects
 				select
 					pt.GetComponent<MeshFilter>()?.sharedMesh
 					??
@@ -529,10 +530,10 @@ namespace Abss.Geometry
 		/// パーツごとに、それぞれのマテリアルハッシュ配列をすべてクエリする。
 		/// </summary>
 		public static IEnumerable<IEnumerable<(string name, int hash)>>
-			QueryMatNameAndHash_EverySubmeshesEveryMeshes( IEnumerable<MonoBehaviour> parts )
+			QueryMatNameAndHash_EverySubmeshesEveryMeshes( IEnumerable<GameObject> gameObjects )
 		{
 			var qMatNameAndHashEveryParts =
-				from pt in parts
+				from pt in gameObjects
 				select pt.GetComponent<MeshRenderer>()?.sharedMaterials into mats
 				select
 					from mat in mats.EmptyIfNull()

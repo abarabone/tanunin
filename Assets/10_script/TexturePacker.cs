@@ -12,16 +12,32 @@ namespace Abss.Geometry
 		public static Texture PackTextureAndReUv( IEnumerable<GameObject> targetObjects )
 		{
 
-			var qNameAndHashMats = MaterialUtility.QueryMatNameAndHash_EverySubmeshesEveryMeshes(  );
+			var qNameAndHashMats = MaterialUtility.QueryMatNameAndHash_EverySubmeshesEveryMeshes( targetObjects );
 			var matHashToIdxDict = MaterialUtility.ToDictionaryForMaterialHashToIndex( qNameAndHashMats );
+
+			var aa = VertexUtility.qu
 
 			var q =
 				from obj in targetObjects
-				select (mats: obj.GetComponent<Renderer>()?.sharedMaterials, uvs)
+				select (mats: obj.GetComponent<Renderer>()?.sharedMaterials, uvss:obj.GetComponent)
 
 			return null;
 
-			IEnumerable<> query
+			(Material[],Vector2[]) getMatAndUvs_( GameObject obj_ )
+			{
+				var smr = obj_.GetComponent<SkinnedMeshRenderer>();
+				
+				var mats = obj_.GetComponent<Renderer>().sharedMaterials;
+
+				var mesh = smr != null
+					? smr.sharedMesh
+					: obj_.GetComponent<MeshFilter>()?.sharedMesh;
+				var uvss =
+					from i in Enumerable.Range( 0, mats.Length )
+					select mesh.GetUVs(()
+
+				return (mats, mesh.uvs)
+			}
 
 		}
 
