@@ -9,7 +9,7 @@ namespace Abss.Geometry
 {
 	public static class TexturePacker
 	{
-
+		/*
 		public static Texture PackTextureAndReUv( IEnumerable<GameObject> targetObjects )
 		{
 			var matHashToIdxDict = targetObjects
@@ -42,7 +42,7 @@ namespace Abss.Geometry
 				return (mats, mesh.uvs)
 			}
 
-		}
+		}*/
 
 		/// <summary>
 		/// 全パーツから、それぞれのマテリアルハッシュ配列をすべてクエリする。

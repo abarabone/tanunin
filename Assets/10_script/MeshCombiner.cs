@@ -66,18 +66,25 @@ namespace Abss.Geometry
 		static public Func<MeshElements>
 			BuildUnlitMeshElements( IEnumerable<GameObject> gameObjects, Transform tfBase, bool isCombineSubMeshes = true )
 		{
-			var qMesh = VertexUtility.QueryMesh_EveryObjects( gameObjects );
+			var mmts = MeshExtractionUtility.QueryMeshMatsTransform_IfHaving( gameObjects ).ToList();
 
-			var vtxss = ( from mesh in qMesh select mesh.vertices ).ToList();
-			var uvss = ( from mesh in qMesh select mesh.uv ).ToList();
-			var idxsss = IndexUtility.QueryIndices_EverySubmeshesEveryMeshes( qMesh ).ToListRecursive2();
+			return BuildUnlitMeshElements( mmts, tfBase, isCombineSubMeshes );
+		}
+
+		static public Func<MeshElements>
+			BuildUnlitMeshElements( List<(Mesh mesh,Material[] mats,Transform tf)> mmts, Transform tfBase, bool isCombineSubMeshes )
+		{
+
+			var vtxss = ( from x in mmts select x.mesh.vertices ).ToList();
+			var uvss = ( from x in mmts select x.mesh.uv ).ToList();
+			var idxsss = ( from x in mmts select x.mesh ).To(IndexUtility.QueryIndices_EverySubmeshesEveryMeshes).ToListRecursive2();
 
 			var mtBaseInv = tfBase.worldToLocalMatrix;
-			var mtObjects = ( from pt in gameObjects select pt.transform.localToWorldMatrix ).ToList();
+			var mtObjects = ( from x in mmts select x.tf.localToWorldMatrix ).ToList();
 
 			var matNameAndHashLists = isCombineSubMeshes
 				? null
-				: MaterialUtility.QueryMatNameAndHash_EverySubmeshesEveryMeshes( gameObjects ).ToListRecursive2();
+				: ( from x in mmts select x.mats ).To(MaterialUtility.QueryMatNameAndHash_EverySubmeshesEveryMeshes).ToListRecursive2();
 			
 
 			return () =>
@@ -112,13 +119,19 @@ namespace Abss.Geometry
 		/// Mesh 要素を結合するデリゲートを返す。位置とＵＶと法線。
 		/// </summary>
 		static public Func<MeshElements>
-			BuildNormalMeshElements( IEnumerable<GameObject> gameObjects, Transform tfBase, bool isCombineSubMeshes )
+			BuildNormalMeshElements( IEnumerable<GameObject> gameObjects, Transform tfBase, bool isCombineSubMeshes = true )
 		{
-			var f = BuildUnlitMeshElements( gameObjects, tfBase, isCombineSubMeshes );
+			var mmts = MeshExtractionUtility.QueryMeshMatsTransform_IfHaving( gameObjects ).ToList();
 
-			var qMesh = VertexUtility.QueryMesh_EveryObjects( gameObjects );
-
-			var nmss = VertexUtility.QueryNormals_EveryMeshes( qMesh ).ToList();
+			return BuildUnlitMeshElements( mmts, tfBase, isCombineSubMeshes );
+		}
+		
+		static public Func<MeshElements>
+			BuildNormalMeshElements( List<(Mesh mesh,Material[] mats,Transform tf)> mmts, Transform tfBase, bool isCombineSubMeshes )
+		{
+			var f = BuildUnlitMeshElements( mmts, tfBase, isCombineSubMeshes );
+			
+			var nmss = ( from x in mmts select x.mesh ).To(VertexUtility.QueryNormals_EveryMeshes).ToList();
 			
 			return () =>
 			{
@@ -134,33 +147,40 @@ namespace Abss.Geometry
 		/// <summary>
 		/// Mesh 要素を結合するデリゲートを返す。Structure オブジェクト用。
 		/// </summary>
-		static public Func<MeshElements> BuildStructureWithPalletMeshElements
-			( IEnumerable<_StructurePartBase> parts, Transform tfBase )
+		static public Func<MeshElements>
+			BuildStructureWithPalletMeshElements ( IEnumerable<_StructurePartBase> parts, Transform tfBase )
 		{
-			var gos = from part in parts select part.gameObject;
+			var gameObjects = from part in parts select part.gameObject;
+			var mmts = MeshExtractionUtility.QueryMeshMatsTransform_IfHaving( gameObjects ).ToList();
 
-			var f = BuildNormalMeshElements( gos, tfBase, isCombineSubMeshes:true );
+			return BuildStructureWithPalletMeshElements( mmts, tfBase );
+		}
+		
+		static public Func<MeshElements>
+			BuildStructureWithPalletMeshElements ( List<(Mesh mesh,Material[] mats,Transform tf)> mmts, Transform tfBase )
+		{
 
-			var qMesh = VertexUtility.QueryMesh_EveryObjects( gos );
-
+			var f = BuildNormalMeshElements( mmts, tfBase, isCombineSubMeshes:true );
+			
 
 			// パーツＩＤとパレットＩＤをそれぞれ生成し、Color32 にパックする。
 			// （ほかのメッシュ要素は f で取得されている。ここでは、Color32 の生成だけに集中すればよい。）
 			
 
 			// 全パーツから、パーツＩＤをすべてクエリする。
-			var partIds = ( from pt in parts select pt.partId ).ToList();
+			var partIds = ( from x in mmts select x.tf.GetComponent<_StructurePartBase>().partId ).ToList();
 
 			// 各メッシュごとに頂点数を取得。
-			var vertexCount_EveryMeshes = ( from mesh in qMesh select mesh.vertexCount ).ToList();
+			var vertexCount_EveryMeshes = ( from x in mmts select x.mesh.vertexCount ).ToList();
 
 
 			// サブメッシュ単位で、頂点数を取得。
-			var vertexCount_EverySubmeshes = VertexUtility.QueryVertexCount_EverySubmeshes( qMesh ).ToList();
+			var vertexCount_EverySubmeshes =
+				( from x in mmts select x.mesh ).To(VertexUtility.QueryVertexCount_EverySubmeshes).ToList();
 
 			// mat name and hath の配列を取得。
-			var mats_EveryMeshes =
-				MaterialUtility.QueryMatNameAndHash_EverySubmeshesEveryMeshes( gos ).ToListRecursive2();
+			var mats_EveryMeshes = ( from x in mmts select x.mats )
+				.To(MaterialUtility.QueryMatNameAndHash_EverySubmeshesEveryMeshes).ToListRecursive2();
 
 
 			return () => 
@@ -331,6 +351,49 @@ namespace Abss.Geometry
 
 	}
 	
+
+	public static class MeshExtractionUtility
+	{
+
+		/// <summary>
+		/// メッシュと材質配列を持つオブジェクトを抽出し、その組を列挙して返す。片方でも null であれば、除外される。
+		/// </summary>
+		public static IEnumerable<(Mesh mesh, Material[] mats, Transform tf)>
+			QueryMeshMatsTransform_IfHaving( IEnumerable<GameObject> gameObjects )
+		{
+			return
+				from obj in gameObjects
+				let r = obj.GetComponent<SkinnedMeshRenderer>()
+				let mesh = r?.sharedMesh ?? obj.GetComponent<MeshFilter>().sharedMesh
+				let mats = r?.sharedMaterials ?? obj.GetComponent<Renderer>().sharedMaterials
+				select (mesh, mats, obj.transform) into x
+				where x.mesh != null || x.mats != null
+				select x
+				;
+		}
+
+
+		///// <summary>
+		///// 
+		///// </summary>
+		//public static IEnumerable<Mesh> QueryMesh_EveryObjects( IEnumerable<GameObject> gameObjects )
+		//{
+		//	var qMesh =
+		//		from pt in gameObjects
+		//		select
+		//			pt.GetComponent<MeshFilter>()?.sharedMesh
+		//			??
+		//			pt.GetComponent<SkinnedMeshRenderer>()?.sharedMesh
+		//			into mesh
+		//		where mesh != null
+		//		select mesh
+		//		;
+
+		//	return qMesh;
+		//}
+
+
+	}
 		
 	/// <summary>
 	/// 
@@ -406,23 +469,7 @@ namespace Abss.Geometry
 	/// </summary>
 	public static class VertexUtility
 	{
-			
-		/// <summary>
-		/// 
-		/// </summary>
-		public static IEnumerable<Mesh> QueryMesh_EveryObjects( IEnumerable<GameObject> gameObjects )
-		{
-			var qMesh =
-				from pt in gameObjects
-				select
-					pt.GetComponent<MeshFilter>()?.sharedMesh
-					??
-					pt.GetComponent<SkinnedMeshRenderer>()?.sharedMesh
-				;
-
-			return qMesh.Where( mesh => mesh != null );
-		}
-
+		
 		/// <summary>
 		/// 
 		/// </summary>
@@ -536,17 +583,14 @@ namespace Abss.Geometry
 		/// パーツごとに、それぞれのマテリアルハッシュ配列をすべてクエリする。
 		/// </summary>
 		public static IEnumerable<IEnumerable<(string name, int hash)>>
-			QueryMatNameAndHash_EverySubmeshesEveryMeshes( IEnumerable<GameObject> gameObjects )
+			QueryMatNameAndHash_EverySubmeshesEveryMeshes( IEnumerable<Material[]> materials_EveryMeshes )
 		{
-			var qMatNameAndHashEveryParts =
-				from pt in gameObjects
-				select pt.GetComponent<MeshRenderer>()?.sharedMaterials into mats
+			return
+				from mats in materials_EveryMeshes
 				select
-					from mat in mats.EmptyIfNull()
+					from mat in mats
 					select (mat.name, mat.GetHashCode())
-					;
-
-			return qMatNameAndHashEveryParts;
+				;
 		}
 			
 		/// <summary>
