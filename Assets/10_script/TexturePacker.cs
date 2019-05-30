@@ -9,59 +9,43 @@ namespace Abss.Geometry
 {
 	public static class TexturePacker
 	{
-		/*
-		public static Texture PackTextureAndReUv( IEnumerable<GameObject> targetObjects )
+		
+		public static Texture PackTextureAndTranslateUv( IEnumerable<GameObject> targetObjects )
 		{
-			var matHashToIdxDict = targetObjects
+			var mmts = MeshExtractionUtility.QueryMeshMatsTransform_IfHaving( targetObjects ).ToList();
+
+			var matHashToIdxDict = ( from x in mmts select x.mats )
 				.To(MaterialUtility.QueryMatNameAndHash_EverySubmeshesEveryMeshes)
 				.To(MaterialUtility.ToDictionaryForMaterialHashToIndex);
 
-			var vtxCount_EverySubmeshes = targetObjects
-				.To(VertexUtility.QueryMesh_EveryObjects)
+			var vtxCount_EverySubmeshes = ( from x in mmts select x.mesh )
 				.To(VertexUtility.QueryVertexCount_EverySubmeshes);
 
-			var q =
-				from obj in targetObjects
-				select (mats: obj.GetComponent<Renderer>()?.sharedMaterials, uvss:obj.GetComponent)
-
-			return null;
-
-			(Material[],Vector2[]) getMatAndUvs_( GameObject obj_ )
-			{
-				var smr = obj_.GetComponent<SkinnedMeshRenderer>();
-				
-				var mats = obj_.GetComponent<Renderer>().sharedMaterials;
-
-				var mesh = smr != null
-					? smr.sharedMesh
-					: obj_.GetComponent<MeshFilter>()?.sharedMesh;
-				var uvss =
-					from i in Enumerable.Range( 0, mats.Length )
-					select mesh.GetUVs(()
-
-				return (mats, mesh.uvs)
-			}
-
-		}*/
-
-		/// <summary>
-		/// 全パーツから、それぞれのマテリアルハッシュ配列をすべてクエリする。
-		/// 名前順にソートされる。
-		/// </summary>
-		public static IEnumerable<IEnumerable<int>>
-			QueryMatHashArraysEveryParts( IEnumerable<_StructurePartBase> parts )
-		{
-			var qMatHashArrayEveryParts =
-				from pt in parts
-				select pt.GetComponent<MeshRenderer>()?.sharedMaterials into mats
-				from mat in mats ?? Enumerable.Empty<Material>()//mats.DefaultIfEmpty()
-				orderby mat.name
-				group mat.GetHashCode() by mats into matHashs
-				select matHashs.ToArray()
+			var qFlatMats =
+				from x in mmts
+				from mat in x.mats
+				select mat
 				;
 
-			return qMatHashArrayEveryParts;
+			var qTextures =
+				from mat in qFlatMats
+				select mat.mainTexture
+				;
+			//var atlas = new Texture2D( width:0, height:0, textureFormat:TextureFormat.ARGB32, mipChain:false );
+			var dstTexture = new Texture2D( 0, 0 );
+			var flatUvRects = dstTexture.PackTextures(
+				qTextures.Cast<Texture2D>().ToArray(), padding: 0, maximumAtlasSize: 4096,
+				makeNoLongerReadable: false
+			);
+
+			var q =
+				from x in (qFlatMats, flatUvRects).Zip( (x,y)=>(mat:x, uvs:y) )
+				select 
+
+
+			return null;
 		}
+
 	}
 }
 

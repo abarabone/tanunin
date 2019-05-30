@@ -136,18 +136,35 @@ namespace Abss.Common.Extension
 
 	public static class FuncExtension
 	{ 
+		/// <summary>
+		/// 左→右に関数をつなぎ、値をパイプのように流していく。
+		/// </summary>
 		public static Tdst To<Tsrc,Tdst>( this Tsrc src, Func<Tsrc,Tdst> nextfunction )
 		{
 			return nextfunction( src );
 		}
+		/// <summary>
+		/// 左→右に関数をつなぎ、値をパイプのように流していく。流す値は、２値のタプル。
+		/// </summary>
 		public static Tdst To<Tsrc0,Tsrc1,Tdst>( this (Tsrc0 v0, Tsrc1 v1) src, Func<Tsrc0,Tsrc1,Tdst> nextfunction )
 		{
 			return nextfunction( src.v0, src.v1 );
 		}
+		/// <summary>
+		/// 左→右に関数をつなぎ、値をパイプのように流していく。流す値は、３値のタプル。
+		/// </summary>
 		public static Tdst To<Tsrc0,Tsrc1,Tsrc2,Tdst>
 			( this (Tsrc0 v0, Tsrc1 v1, Tsrc2 v2) src, Func<Tsrc0,Tsrc1,Tsrc2,Tdst> nextfunction )
 		{
 			return nextfunction( src.v0, src.v1, src.v2 );
+		}
+	}
+
+	public static class UnityObjectExtension
+	{
+		public static T As<T>( this T obj ) where T:UnityEngine.Object
+		{
+			return obj != null ? obj : null;
 		}
 	}
 

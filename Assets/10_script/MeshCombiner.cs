@@ -71,20 +71,24 @@ namespace Abss.Geometry
 			return BuildUnlitMeshElements( mmts, tfBase, isCombineSubMeshes );
 		}
 
-		static public Func<MeshElements>
+		static Func<MeshElements>
 			BuildUnlitMeshElements( List<(Mesh mesh,Material[] mats,Transform tf)> mmts, Transform tfBase, bool isCombineSubMeshes )
 		{
 
 			var vtxss = ( from x in mmts select x.mesh.vertices ).ToList();
 			var uvss = ( from x in mmts select x.mesh.uv ).ToList();
-			var idxsss = ( from x in mmts select x.mesh ).To(IndexUtility.QueryIndices_EverySubmeshesEveryMeshes).ToListRecursive2();
+			var idxsss = ( from x in mmts select x.mesh )
+				.To(IndexUtility.QueryIndices_EverySubmeshesEveryMeshes)
+				.ToListRecursive2();
 
 			var mtBaseInv = tfBase.worldToLocalMatrix;
 			var mtObjects = ( from x in mmts select x.tf.localToWorldMatrix ).ToList();
 
 			var matNameAndHashLists = isCombineSubMeshes
 				? null
-				: ( from x in mmts select x.mats ).To(MaterialUtility.QueryMatNameAndHash_EverySubmeshesEveryMeshes).ToListRecursive2();
+				: ( from x in mmts select x.mats )
+					.To(MaterialUtility.QueryMatNameAndHash_EverySubmeshesEveryMeshes)
+					.ToListRecursive2();
 			
 
 			return () =>
@@ -126,7 +130,7 @@ namespace Abss.Geometry
 			return BuildUnlitMeshElements( mmts, tfBase, isCombineSubMeshes );
 		}
 		
-		static public Func<MeshElements>
+		static Func<MeshElements>
 			BuildNormalMeshElements( List<(Mesh mesh,Material[] mats,Transform tf)> mmts, Transform tfBase, bool isCombineSubMeshes )
 		{
 			var f = BuildUnlitMeshElements( mmts, tfBase, isCombineSubMeshes );
@@ -156,7 +160,7 @@ namespace Abss.Geometry
 			return BuildStructureWithPalletMeshElements( mmts, tfBase );
 		}
 		
-		static public Func<MeshElements>
+		static Func<MeshElements>
 			BuildStructureWithPalletMeshElements ( List<(Mesh mesh,Material[] mats,Transform tf)> mmts, Transform tfBase )
 		{
 
@@ -363,7 +367,7 @@ namespace Abss.Geometry
 		{
 			return
 				from obj in gameObjects
-				let r = obj.GetComponent<SkinnedMeshRenderer>()
+				let r = obj.GetComponent<SkinnedMeshRenderer>().As()
 				let mesh = r?.sharedMesh ?? obj.GetComponent<MeshFilter>().sharedMesh
 				let mats = r?.sharedMaterials ?? obj.GetComponent<Renderer>().sharedMaterials
 				select (mesh, mats, obj.transform) into x
@@ -371,27 +375,6 @@ namespace Abss.Geometry
 				select x
 				;
 		}
-
-
-		///// <summary>
-		///// 
-		///// </summary>
-		//public static IEnumerable<Mesh> QueryMesh_EveryObjects( IEnumerable<GameObject> gameObjects )
-		//{
-		//	var qMesh =
-		//		from pt in gameObjects
-		//		select
-		//			pt.GetComponent<MeshFilter>()?.sharedMesh
-		//			??
-		//			pt.GetComponent<SkinnedMeshRenderer>()?.sharedMesh
-		//			into mesh
-		//		where mesh != null
-		//		select mesh
-		//		;
-
-		//	return qMesh;
-		//}
-
 
 	}
 		
@@ -415,11 +398,10 @@ namespace Abss.Geometry
 		}
 
 		/// <summary>
-		/// 
+		/// メッシュごとに、インデックスのベースオフセットをクエリする。
 		/// </summary>
 		public static IEnumerable<int> QueryBaseVertex_EveryMeshes( IEnumerable<Vector3[]> vtxsEveryMeshes )
 		{
-			// 各メッシュに対する、頂点インデックスのベースオフセットをクエリする。
 			var qVtxCount = vtxsEveryMeshes	// まずは「mesh n の頂点数」の集合をクエリする。
 				.Select( vtxs => vtxs.Count() )
 				.Scan( seed:0, (pre,cur) => pre + cur )
@@ -429,7 +411,7 @@ namespace Abss.Geometry
 		}
 
 		/// <summary>
-		/// 
+		/// 反転（スケールの一部がマイナス）メッシュであれば、三角インデックスを逆順にする。
 		/// </summary>
 		public static IEnumerable<int> ReverseEvery3_IfMinusScale( IEnumerable<int> indices, Matrix4x4 mtObject )
 		{
@@ -454,7 +436,7 @@ namespace Abss.Geometry
 						var i0 = e.Current; e.MoveNext();
 						var i1 = e.Current; e.MoveNext();
 						var i2 = e.Current;
-						yield return i0;
+						yield return i0;//210でもいい？
 						yield return i2;
 						yield return i1;
 					}
