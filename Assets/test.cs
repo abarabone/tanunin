@@ -6,7 +6,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using System.Runtime.InteropServices;
 using Abss.Common.Extension;
-using Abss.Geometry2;
+using Abss.Geometry;
 
 public class test : _StructurePartBase
 {
@@ -16,7 +16,7 @@ public class test : _StructurePartBase
     {
 		var parts = from x in this.GetComponentsInChildren<test>() select x.gameObject;
 		//var results = await Task.WhenAll( Task.Run( MeshCombiner.BuildStructureWithPalletMeshElements( parts, this.transform ) ) );
-		var results = await Task.WhenAll( Task.Run( MeshCombiner.BuildUnlitMeshElements( parts, this.transform ) ) );
+		var results = await Task.WhenAll( Task.Run( MeshCombiner.BuildNormalMeshElements( parts, this.transform ) ) );
 
 		var go = results
 			.First()
@@ -38,8 +38,8 @@ public class test : _StructurePartBase
 		//mpb.SetTexture( "_MainTex", mat.GetTexture("_MainTex") );
 		////r.SetPropertyBlock( mpb );
 
-		var snrc = go.AddComponent<StructureNearRenderingController>();
-		snrc.SetVisibilityFlags( Enumerable.Repeat( -1, 4 * 8 ).ToArray() );
+		//var snrc = go.AddComponent<StructureNearRenderingController>();
+		//snrc.SetVisibilityFlags( Enumerable.Repeat( -1, 4 * 8 ).ToArray() );
 
 	}
 

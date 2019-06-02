@@ -8,7 +8,7 @@ using System;
 using Abss.Common.Extension;
 using Abss.StructureObject;
 
-namespace Abss.Geometry
+namespace Abss.Geometry2
 {
 
 	/// <summary>
