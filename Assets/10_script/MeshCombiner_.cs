@@ -28,6 +28,9 @@ namespace Abss.Geometry2
 		public List<Matrix4x4>		mtObjects;
 		public Matrix4x4			MtBaseInv;
 
+		// 結合後の材質（
+		public Material[] materials;
+
 		/// <summary>
 		/// Mesh を生成する。
 		/// </summary>
@@ -76,27 +79,27 @@ namespace Abss.Geometry2
 			var uvss = ( from x in mmts select x.mesh.uv ).ToList();
 
 			var idxsss = ( from x in mmts select x.mesh )
-				.To(PerSubMeshPerMesh.QueryIndices)
-				.ToListRecursive2();
+				.To(PerSubMeshPerMesh.QueryIndices).ToListRecursive2();
 
 			var mtBaseInv = tfBase.worldToLocalMatrix;
 			var mtObjects = ( from x in mmts select x.tf.localToWorldMatrix ).ToList();
 
-			var matNameAndHashLists = isCombineSubMeshes
+			var materialsCombined = ( from x in mmts select x.mats )
+				.To(MaterialCombined.Combine).ToArray();
+
+			var dstMatHashes = ( from mat in materialsCombined select mat.GetHashCode() ).ToList();
+			
+			var srcMatHashes = isCombineSubMeshes
 				? null
 				: ( from x in mmts select x.mats )
-					.To(MaterialUtility.QueryMatNameAndHash_EverySubmeshesEveryMeshes)
-					.ToListRecursive2();
-			
+					.To(PerSubMeshPerMesh.QueryMaerialHash).ToListRecursive2();
+
 
 			return () =>
 			{
-				var matHashToIdxDict = isCombineSubMeshes
-					? null
-					: MaterialUtility.ToDictionaryForMaterialHashToIndex( matNameAndHashLists );
 				var idxss = isCombineSubMeshes
 					? ConvertUtility.ToIndicesList( vtxss, idxsss, mtObjects )
-					: ConvertUtility.ToIndicesList( vtxss, idxsss, mtObjects, matNameAndHashLists, matHashToIdxDict );
+					: ConvertUtility.ToIndicesList( vtxss, idxsss, mtObjects, srcMatHashes, dstMatHashes );
 
 				//var idxss =
 				//	matNameAndHashLists
@@ -116,10 +119,60 @@ namespace Abss.Geometry2
 			};
 		}
 		
+
+	}
+	
+	/// <summary>
+	/// メッシュ要素（頂点、ＵＶ、インデックスなど別々）ごとのコンバートを行い、list<> につめて返す。
+	/// 関数の引数はすべて Unity オブジェクトではないため、このクラスの全関数はサブスレッドで処理できる。
+	/// </summary>
+	static class ConvertUtility
+	{
+		
+		/// <summary>
+		/// 
+		/// </summary>
+		public static List<Vector3> ToVerticesList
+			( IEnumerable<IEnumerable<Vector3>> verticesPerMeshes, IEnumerable<Matrix4x4> mtObjects, Matrix4x4 mtBaseInv )
+		{
+			var qVertex =
+				from xy in (verticesPerMeshes, mtObjects).Zip( (x,y)=>(vtxs:x, mt:y) )
+				let mt = xy.mt * mtBaseInv
+				from vtx in xy.vtxs
+				select mt.MultiplyPoint3x4( vtx )
+				;
+			
+			return qVertex.ToList();
+		}
+
+		/// <summary>
+		/// 各パーツメッシュの持つインデックスをすべて結合し、ひとつの配列にして返す。
+		/// その際各メッシュの頂点数は、次のインデックスのベースとなる。
+		/// また、マテリアル別のサブメッシュも、ひとつに統合される。
+		/// </summary>
+		public static List<List<int>> ToIndicesList(
+			IEnumerable<Vector3[]> vertices_PerMesh,
+			IEnumerable<IEnumerable<int[]>> indices_PerSubmeshPerMesh,
+			IEnumerable<Matrix4x4> mtPart_PerMesh
+		)
+		{
+			var mts = mtPart_PerMesh;
+
+			var qBaseVtxs = PerMesh.QueryBaseVertex( vertices_PerMesh );
+			
+			var qIndex =
+				from xyz_ in (indices_PerSubmeshPerMesh, mts, qBaseVtxs).Zip()
+				select (idxss: xyz_.x, mt: xyz_.y, baseVtx: xyz_.z) into src
+				from idxs in src.idxss
+				from index in IndexUtility.ReverseEvery3_IfMinusScale( idxs, src.mt )
+				select src.baseVtx + index;
+
+			return Enumerable.Repeat( qIndex.ToList(), 1 ).ToListRecursive2();
+		}
+		
 		/// <summary>
 		/// 各パーツメッシュの持つインデックスを結合し、最終的なサブメッシュごとの配列にして返す。
 		/// その際各メッシュの頂点数は、次のインデックスのベースとなる。
-		/// また、マテリアル別のサブメッシュも、ひとつに統合される。
 		/// </summary>
 		public static List<List<int>> ToIndicesList(
 			IEnumerable<Vector3[]> vertices_PerMesh,
@@ -153,53 +206,6 @@ namespace Abss.Geometry2
 			return qIdxsPerDstMat.ToListRecursive2();
 		}
 
-
-	}
-	
-	/// <summary>
-	/// メッシュ要素（頂点、ＵＶ、インデックスなど別々）ごとのコンバートを行い、list<> につめて返す。
-	/// 関数の引数はすべて Unity オブジェクトではないため、このクラスの全関数はサブスレッドで処理できる。
-	/// </summary>
-	static class ConvertUtility
-	{
-
-		/// <summary>
-		/// 各パーツメッシュの持つインデックスをすべて結合し、ひとつの配列にして返す。
-		/// その際各メッシュの頂点数は、次のインデックスのベースとなる。
-		/// また、マテリアル別のサブメッシュも、ひとつに統合される。
-		/// </summary>
-		public static List<List<int>> ToIndicesList(
-			IEnumerable<Vector3[]> vertices_PerMesh,
-			IEnumerable<IEnumerable<int[]>> indices_PerSubmeshPerMesh,
-			IEnumerable<Matrix4x4> mtPart_PerMesh
-		)
-		{
-			var mts = mtPart_PerMesh;
-
-			var qBaseVtxs = PerMesh.QueryBaseVertex( vertices_PerMesh );
-			
-			var qIndex =
-				from xyz_ in (indices_PerSubmeshPerMesh, mts, qBaseVtxs).Zip()
-				let idxss = xyz_.x
-				let mt = xyz_.y
-				let baseVtx = xyz_.z
-				from idxs in idxss
-				from index in IndexUtility.ReverseEvery3_IfMinusScale( idxs, mt )
-				select baseVtx + index;
-
-			return Enumerable.Repeat( qIndex.ToList(), 1 ).ToListRecursive2();
-		}
-
-		public static Material[] ToMaterials( IEnumerable<Material[]> materials_PerObject )
-		{
-			var qMats =
-				from mat in materials_PerObject.SelectMany().Distinct()
-				orderby mat.name
-				select mat
-				;
-
-			return qMats.ToArray();
-		}
 	}
 
 	/// <summary>
@@ -224,7 +230,7 @@ namespace Abss.Geometry2
 				select x
 				;
 		}
-
+		
 	}
 
 	/// <summary>
@@ -297,7 +303,7 @@ namespace Abss.Geometry2
 					select mat.GetHashCode()
 				;
 		}
-
+		
 	}
 
 	/// <summary>
@@ -331,7 +337,20 @@ namespace Abss.Geometry2
 				select x.hash
 				;
 		}
+		
+		/// <summary>
+		/// 
+		/// </summary>
+		public static Material[] Combine( IEnumerable<Material[]> materials_PerObject )
+		{
+			var qMats =
+				from mat in materials_PerObject.SelectMany().Distinct()
+				orderby mat.name
+				select mat
+				;
 
+			return qMats.ToArray();
+		}
 	}
 
 	public static class IndexUtility

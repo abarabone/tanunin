@@ -38,9 +38,9 @@ namespace Abss.Geometry
 				makeNoLongerReadable: false
 			);
 
-			var q =
-				from x in (qFlatMats, flatUvRects).Zip( (x,y)=>(mat:x, uvs:y) )
-				select 
+			//var q =
+			//	from x in (qFlatMats, flatUvRects).Zip( (x,y)=>(mat:x, uvs:y) )
+			//	select 
 
 
 			return null;

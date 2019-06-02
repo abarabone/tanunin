@@ -6,7 +6,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using System.Runtime.InteropServices;
 using Abss.Common.Extension;
-using Abss.Geometry;
+using Abss.Geometry2;
 
 public class test : _StructurePartBase
 {
@@ -14,9 +14,9 @@ public class test : _StructurePartBase
 
     async void Start()
     {
-		var parts = this.GetComponentsInChildren<test>();
-		var results = await Task.WhenAll( Task.Run( MeshCombiner.BuildStructureWithPalletMeshElements( parts, this.transform ) ) );
-		//var results = await Task.WhenAll( Task.Run(MeshCombiner.BuildNormalMeshElements( parts, this.transform )) );
+		var parts = from x in this.GetComponentsInChildren<test>() select x.gameObject;
+		//var results = await Task.WhenAll( Task.Run( MeshCombiner.BuildStructureWithPalletMeshElements( parts, this.transform ) ) );
+		var results = await Task.WhenAll( Task.Run( MeshCombiner.BuildUnlitMeshElements( parts, this.transform ) ) );
 
 		var go = results
 			.First()
