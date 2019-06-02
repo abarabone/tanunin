@@ -413,7 +413,7 @@ namespace Abss.Geometry
 		/// <summary>
 		/// 反転（スケールの一部がマイナス）メッシュであれば、三角インデックスを逆順にする。
 		/// </summary>
-		public static IEnumerable<int> ReverseEvery3_IfMinusScale( IEnumerable<int> indices, Matrix4x4 mtObject )
+		public static IEnumerable<int> ReverseEvery3_IfMinusScale( this IEnumerable<int> indices, Matrix4x4 mtObject )
 		{
 			if( isMinusScale_(in mtObject) ) return reverseEvery3_(indices);
 
@@ -469,7 +469,7 @@ namespace Abss.Geometry
 				return mesh_.normals;
 			}
 		}
-			
+		
 		/// <summary>
 		/// 
 		/// </summary>
@@ -477,7 +477,7 @@ namespace Abss.Geometry
 			QueryStructurePartIndex_EveryVertices
 				( IEnumerable<int> vertexCountEveryMeshes, IEnumerable<int> partIds )
 		{
-			var qPidEveryParts =	
+			var qPidEveryParts =
 				from pid in partIds
 				select (
 				//	int4Index:		pid >> 5 >> 2,

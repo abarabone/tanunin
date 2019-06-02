@@ -80,6 +80,11 @@ namespace Abss.Common.Extension
 		{
 			return src ?? Enumerable.Empty<T>();
 		}
+
+		public static IEnumerable<T> SelectMany<T>( this IEnumerable<IEnumerable<T>> src )
+		{
+			return src.SelectMany( x => x );
+		}
 	}
 
 	public static class ConversionExtension
