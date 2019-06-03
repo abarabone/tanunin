@@ -80,35 +80,27 @@ namespace Abss.Geometry
 
 			var idxsss = ( from x in mmts select x.mesh )
 				.To(PerSubMeshPerMesh.QueryIndices).ToListRecursive2();
-
-
+			
 			var mtBaseInv = tfBase.worldToLocalMatrix;
 			var mtObjects = ( from x in mmts select x.tf.localToWorldMatrix ).ToList();
 
 
-			var materialsCombined = ( from x in mmts select x.mats )
-				.To(MaterialCombined.Combine).ToArray();
-
-			var dstMatHashes = ( from mat in materialsCombined select mat.GetHashCode() ).ToList();
-			
-			var srcMatHashes = isCombineSubMeshes
-				? null
-				: ( from x in mmts select x.mats )
-					.To(PerSubMeshPerMesh.QueryMaterialHash).ToListRecursive2();
-
-
 			return () =>
 			{
+				var materialsCombined = ( from x in mmts select x.mats ).To(MaterialCombined.Combine).ToArray();
+
+				var qDstMatHashes = isCombineSubMeshes
+					? null
+					: from mat in materialsCombined select mat.GetHashCode();
+
+				var qSrcMatHashes = isCombineSubMeshes
+					? null
+					: ( from x in mmts select x.mats ).To(PerSubMeshPerMesh.QueryMaterialHash);
+				
 				var idxss = isCombineSubMeshes
 					? ConvertUtility.ToIndicesList( vtxss, idxsss, mtObjects )
-					: ConvertUtility.ToIndicesList( vtxss, idxsss, mtObjects, srcMatHashes, dstMatHashes );
-
-				//var idxss =
-				//	matNameAndHashLists
-				//	?.To(MaterialUtility.ToDictionaryForMaterialHashToIndex)
-				//	?.To( x => ConvertUtility.ToIndicesList( vtxss, idxsss, mtObjects, matNameAndHashLists, x ) )
-				//	?? ConvertUtility.ToIndicesList( vtxss, idxsss, mtObjects );
-
+					: ConvertUtility.ToIndicesList( vtxss, idxsss, mtObjects, qSrcMatHashes, qDstMatHashes );
+				
 				return new MeshElements
 				{
 					Vertecies = ConvertUtility.ToVerticesList( vtxss, mtObjects, mtBaseInv ),
@@ -185,37 +177,34 @@ namespace Abss.Geometry
 			// サブメッシュ単位で、頂点数を取得。
 			var vertexCount_PerSubmeshPerMesh =
 				( from x in mmts select x.mesh ).To(PerSubMeshPerMesh.QueryVertexCount).ToListRecursive2();
-
-			// mat name and hath の配列を取得。
-			var mats_EveryMeshes = ( from x in mmts select x.mats )
-				.To(MaterialUtility.QueryMatNameAndHash_EverySubmeshesEveryMeshes).ToListRecursive2();
-
+			
 
 			return () => 
 			{
+				var me = f();
+				
+				var qDstMatHashes = from mat in me.materials select mat.GetHashCode();
+
+				var qSrcMatHashes = ( from x in mmts select x.mats ).To(PerSubMeshPerMesh.QueryMaterialHash);
+				
 
 				// 頂点ごとのパーツＩＤをすべてクエリする。
 				var qPid_EveryVertices =
-					 QueryStructurePartIndex_EveryVertices( vertexCount_EveryMeshes, partIds );
+					 VertexUtility.QueryStructurePartIndex( vertexCount_EveryMeshes, partIds );
 
-
-				// mat hash → combined mat index に変換する辞書を生成する。
-				var matHashToIndexDict =
-					MaterialUtility.ToDictionaryForMaterialHashToIndex( mats_EveryMeshes );
-
+				
 				// パレットＩＤをすべての頂点ごとにクエリする。
 				var qPallets_EveryVertices = VertexUtility
-					.QueryePallet_EveryVertices( vertexCount_PerSubmeshPerMesh, mats_EveryMeshes, matHashToIndexDict );
+					.QueryePallet( vertexCount_PerSubmeshPerMesh, qSrcMatHashes, qDstMatHashes );
 				
-
-				var me = f();
 
 				me.Colors = ConvertUtility.ToColor32List( qPid_EveryVertices, qPallets_EveryVertices );
 
 				return me;
 			};
+			
 		}
-
+		
 	}
 	
 	/// <summary>
@@ -511,7 +500,7 @@ namespace Abss.Geometry
 		{
 			var qMats =
 				from mat in materials_PerObject.SelectMany().Distinct()
-				orderby mat.name
+			//	orderby mat.name
 				select mat
 				;
 
@@ -526,8 +515,8 @@ namespace Abss.Geometry
 		/// 
 		/// </summary>
 		public static IEnumerable<(int int4Index, int memberIndex, int bitIndex)>
-			QueryStructurePartIndex_EveryVertices
-				( IEnumerable<int> vertexCountEveryMeshes, IEnumerable<int> partIds )
+			QueryStructurePartIndex
+				( IEnumerable<int> vertexCount_PerMesh, IEnumerable<int> partIds )
 		{
 			var qPidEveryParts =
 				from pid in partIds
@@ -541,7 +530,7 @@ namespace Abss.Geometry
 					// unity で int4[] を転送する手段がないので、float の実数部範囲で妥協する。
 				);
 			var qPidEveryVertices =
-				from xy in (vertexCountEveryMeshes, qPidEveryParts).Zip( (x,y)=>(vtxCount:x, pid:y) )
+				from xy in (vertexCount_PerMesh, qPidEveryParts).Zip( (x,y)=>(vtxCount:x, pid:y) )
 				from pidsEveryVtxs in Enumerable.Repeat<(int,int,int)>( xy.pid, xy.vtxCount )
 				select pidsEveryVtxs
 				;
@@ -550,20 +539,17 @@ namespace Abss.Geometry
 		}
 		
 		/// <summary>
-		/// サブメッシュごとの pallet index のクエリを返す。
+		/// 頂点ごとの pallet index のクエリを返す。
 		/// </summary>
-		public static IEnumerable<int> QueryePallet_PerSubMesh
+		public static IEnumerable<int> QueryePallet
 		(
-			IEnumerable<int> matHash_PerSubMesh, IEnumerable<int> matHashesCombined
+			IEnumerable<int> vertexCount_PerSubmesh,
+			IEnumerable<IEnumerable<int>> materialHash_PerSubmeshPerMesh,
+			IEnumerable<int> materialHashesCombined
 		)
 		{
-			// pallet index は、結合後材質の index に等しい。
-			var q =
-
-
-
 			var qHash_EverySubmeshes =
-				from matEverySubmeshes in matHashes_PerMesh
+				from matEverySubmeshes in nameAndHashOfMaterials_EveryMeshes
 				from mat in matEverySubmeshes
 				select mat.hash
 				;
@@ -572,7 +558,7 @@ namespace Abss.Geometry
 			// mat idx は、辞書でＩＤを取得して振る
 			// submesh ごとの vertex count で、src mat idx を
 			var qPalletIdx =
-				from (int matHash, int vtxCount) xy in (qHash_EverySubmeshes, vertexCount_EverySubmeshes).Zip()
+				from (int matHash, int vtxCount) xy in (qHash_EverySubmeshes, vertexCount_PerSubmesh).Zip()
 				let matIdx = matHashToIndexDict[xy.matHash]
 				from matIdxEveryVertices in Enumerable.Repeat(matIdx, xy.vtxCount)
 				select matIdxEveryVertices
