@@ -113,6 +113,8 @@ namespace Abss.Geometry
 					materials = materialsCombined,
 				};
 			};
+			
+
 		}
 		
 		
@@ -179,7 +181,7 @@ namespace Abss.Geometry
 				( from x in mmts select x.mesh ).To(PerSubMeshPerMesh.QueryVertexCount).ToListRecursive2();
 			
 
-			return () => 
+			return () =>
 			{
 				var me = f();
 				
@@ -367,7 +369,7 @@ namespace Abss.Geometry
 	/// </summary>
 	public static class PerMesh
 	{
-		
+
 		/// <summary>
 		/// 
 		/// </summary>
@@ -377,25 +379,25 @@ namespace Abss.Geometry
 				from mesh in meshes
 				select mesh.normals ?? recalculateNormals_( mesh )
 				;
-				
+
 			Vector3[] recalculateNormals_( Mesh mesh_ )
 			{
 				mesh_.RecalculateNormals();
 				return mesh_.normals;
 			}
 		}
-		
+
 		/// <summary>
 		/// メッシュごとに、インデックスのベースオフセットをクエリする。
 		/// </summary>
 		public static IEnumerable<int> QueryBaseVertex( IEnumerable<Vector3[]> vtxsEveryMeshes )
 		{
-			var qVtxCount = vtxsEveryMeshes	// まずは「mesh n の頂点数」の集合をクエリする。
+			var qVtxCount = vtxsEveryMeshes // まずは「mesh n の頂点数」の集合をクエリする。
 				.Select( vtxs => vtxs.Count() )
-				.Scan( seed:0, (pre,cur) => pre + cur )
+				.Scan( seed: 0, ( pre, cur ) => pre + cur )
 				;
-			return Enumerable.Repeat(0,1).Concat( qVtxCount );
-				// { 0 } + { mesh 0 の頂点数, mesh 1 の頂点数, ... }
+			return Enumerable.Repeat( 0, 1 ).Concat( qVtxCount );
+			// { 0 } + { mesh 0 の頂点数, mesh 1 の頂点数, ... }
 		}
 
 	}
@@ -405,7 +407,7 @@ namespace Abss.Geometry
 	/// </summary>
 	public static class PerSubMeshPerMesh
 	{
-		
+
 		/// <summary>
 		/// メッシュ、サブメッシュごとにインデックス配列をクエリする。
 		/// </summary>
@@ -467,31 +469,31 @@ namespace Abss.Geometry
 	public static class MaterialCombined
 	{
 
-		/// <summary>
-		/// すべてのサブメッシュ単位の材質名とハッシュ値をクエリする。
-		/// </summary>
-		public static IEnumerable<(string name,int hash)>
-			QueryNameAndHashOfMaterials( IEnumerable<Material[]> materials_PerMesh )
-		{
-			return
-				from mats in materials_PerMesh
-				from mat in mats
-				select (mat.name, hash:mat.GetHashCode())
-				;
-		}
+		///// <summary>
+		///// すべてのサブメッシュ単位の材質名とハッシュ値をクエリする。
+		///// </summary>
+		//public static IEnumerable<(string name,int hash)>
+		//	QueryNameAndHashOfMaterials( IEnumerable<Material[]> materials_PerMesh )
+		//{
+		//	return
+		//		from mats in materials_PerMesh
+		//		from mat in mats
+		//		select (mat.name, hash:mat.GetHashCode())
+		//		;
+		//}
 
-		/// <summary>
-		/// 結合後の材質ハッシュ値列をクエリする。
-		/// </summary>
-		public static IEnumerable<int> QueryCombinedMaterialHashes
-			( IEnumerable<(string name,int hash)> nameAndHashOfMaterials )
-		{
-			return
-				from x in nameAndHashOfMaterials.Distinct()
-				orderby x.name
-				select x.hash
-				;
-		}
+		///// <summary>
+		///// 結合後の材質ハッシュ値列をクエリする。
+		///// </summary>
+		//public static IEnumerable<int> QueryCombinedMaterialHashes
+		//	( IEnumerable<(string name,int hash)> nameAndHashOfMaterials )
+		//{
+		//	return
+		//		from x in nameAndHashOfMaterials.Distinct()
+		//		orderby x.name
+		//		select x.hash
+		//		;
+		//}
 		
 		/// <summary>
 		/// 
@@ -542,26 +544,29 @@ namespace Abss.Geometry
 		/// 頂点ごとの pallet index のクエリを返す。
 		/// </summary>
 		public static IEnumerable<int> QueryePallet
-		(
-			IEnumerable<int> vertexCount_PerSubmesh,
-			IEnumerable<IEnumerable<int>> materialHash_PerSubmeshPerMesh,
-			IEnumerable<int> materialHashesCombined
-		)
+			(
+				IEnumerable<IEnumerable<int>> vertexCount_PerSubmesh,
+				IEnumerable<IEnumerable<int>> materialHash_PerSubmeshPerMesh,
+				IEnumerable<int> materialHashesCombined
+			)
 		{
-			var qHash_EverySubmeshes =
-				from matEverySubmeshes in nameAndHashOfMaterials_EveryMeshes
-				from mat in matEverySubmeshes
-				select mat.hash
+			var qDstHashAndIdx = materialHashesCombined.Select( (hash,i) => (hash,i) );
+			var qPalletIdx_PerSubmesh =
+				from hashes in materialHash_PerSubmeshPerMesh
+				select
+					from srcMatHash in hashes
+					join dstMat in qDstHashAndIdx on srcMatHash equals dstMat.hash
+					select dstMat.i
 				;
 			// 頂点ごとに pallet index
 			// pallet index は 結合後のマテリアルへの添え字
 			// mat idx は、辞書でＩＤを取得して振る
 			// submesh ごとの vertex count で、src mat idx を
 			var qPalletIdx =
-				from (int matHash, int vtxCount) xy in (qHash_EverySubmeshes, vertexCount_PerSubmesh).Zip()
-				let matIdx = matHashToIndexDict[xy.matHash]
-				from matIdxEveryVertices in Enumerable.Repeat(matIdx, xy.vtxCount)
-				select matIdxEveryVertices
+				from meshxy in (qPalletIdx_PerSubmesh, vertexCount_PerSubmesh).Zip()
+				from (int palletIdx, int vtxCount) xy in meshxy.Zip()
+				from palletIdx in Enumerable.Repeat(xy.palletIdx, xy.vtxCount)
+				select palletIdx
 				;
 
 			return qPalletIdx;

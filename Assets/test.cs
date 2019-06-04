@@ -14,9 +14,10 @@ public class test : _StructurePartBase
 
     async void Start()
     {
-		var parts = from x in this.GetComponentsInChildren<test>() select x.gameObject;
-		//var results = await Task.WhenAll( Task.Run( MeshCombiner.BuildStructureWithPalletMeshElements( parts, this.transform ) ) );
-		var results = await Task.WhenAll( Task.Run( MeshCombiner.BuildNormalMeshElements( parts, this.transform ) ) );
+		var parts = this.GetComponentsInChildren<test>();
+		var results = await Task.WhenAll( Task.Run( MeshCombiner.BuildStructureWithPalletMeshElements( parts, this.transform ) ) );
+		//var parts = from x in this.GetComponentsInChildren<test>() select x.gameObject;
+		//var results = await Task.WhenAll( Task.Run( MeshCombiner.BuildNormalMeshElements( parts, this.transform ) ) );
 
 		var go = results
 			.First()
@@ -38,8 +39,8 @@ public class test : _StructurePartBase
 		//mpb.SetTexture( "_MainTex", mat.GetTexture("_MainTex") );
 		////r.SetPropertyBlock( mpb );
 
-		//var snrc = go.AddComponent<StructureNearRenderingController>();
-		//snrc.SetVisibilityFlags( Enumerable.Repeat( -1, 4 * 8 ).ToArray() );
+		var snrc = go.AddComponent<StructureNearRenderingController>();
+		snrc.SetVisibilityFlags( Enumerable.Repeat( -1, 4 * 8 ).ToArray() );
 
 	}
 
