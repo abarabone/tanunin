@@ -163,6 +163,13 @@ namespace Abss.Common.Extension
 		{
 			return nextfunction( src.v0, src.v1, src.v2 );
 		}
+		/// <summary>
+		/// 左→右に関数をつなぎ、値をパイプのように流していく。
+		/// </summary>
+		public static void To<Tsrc>( this Tsrc src, Action<Tsrc> nextfunction )
+		{
+			nextfunction( src );
+		}
 	}
 
 	public static class UnityObjectExtension

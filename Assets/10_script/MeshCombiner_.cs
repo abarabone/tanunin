@@ -88,7 +88,8 @@ namespace Abss.Geometry
 
 			return () =>
 			{
-				var materialsCombined = ( from x in mmts select x.mats ).To(MaterialCombined.Combine).ToArray();
+				var materialsCombined = ( from x in mmts select x.mats )
+					.To(MaterialCombined.QueryCombine).ToArray();
 
 				return new MeshElements
 				{
@@ -527,7 +528,7 @@ namespace Abss.Geometry
 		/// <summary>
 		/// 
 		/// </summary>
-		public static Material[] Combine( IEnumerable<Material[]> materials_PerObject )
+		public static IEnumerable<Material> QueryCombine( IEnumerable<Material[]> materials_PerObject )
 		{
 			var qMats =
 				from mat in materials_PerObject.SelectMany().Distinct()
@@ -535,7 +536,7 @@ namespace Abss.Geometry
 				select mat
 				;
 
-			return qMats.ToArray();
+			return qMats;
 		}
 	}
 	
