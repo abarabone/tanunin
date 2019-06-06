@@ -57,33 +57,33 @@ namespace Abss.Geometry
 					select (mat.rect, perSub.vtxCount, perSub.baseVtx)
 				;
 
-			var qUvsTranslated_PerSubMeshPerMesh =
+			var qUvsTranslated_PerMesh =
 				from perMesh in (qUvs_PerMesh, qPerSubPerMesh).Zip()
 				select (uvs: perMesh.x, perSub: perMesh.y) into perMesh
 				select
 					from perSub in perMesh.perSub
-					select
-						from iuv in Enumerable.Range( perSub.baseVtx, perSub.vtxCount )
-						let rect = perSub.rect
-						let uv = perMesh.uvs[iuv]
-						select new Vector2
-						{
-							x = rect.x + uv.x * rect.width,
-							y = rect.y + uv.y * rect.height,
-						}
+					from iuv in Enumerable.Range( perSub.baseVtx, perSub.vtxCount )
+					let rect = perSub.rect
+					let uv = perMesh.uvs[iuv]
+					select new Vector2
+					{
+						x = rect.x + uv.x * rect.width,
+						y = rect.y + uv.y * rect.height,
+					}
 				;
 
-
+			
 			var qMeshTraverse =
-				from xy in (from x in mmts select x.mesh, qUvsTranslated_PerSubMeshPerMesh).Zip()
-				select (dst: xy.x, src: xy.y) into perMesh
-				from perSub in perMesh.src.Select( (uvs,i)=>(uvs,i) )
-				select (mesh: perMesh.dst, perSub.uvs, perSub.i)
+				from xy in (from x in mmts select x.tf, qUvsTranslated_PerMesh).Zip()
+				select (dstTf: xy.x, srcUvs: xy.y)
 				;
 
-			foreach( var perSub in qMeshTraverse )
+			foreach( var perMesh in qMeshTraverse )
 			{
-				perSub.mesh.SetUVs( perSub.i, perSub.uvs.ToList() );
+				if( perMesh.dstTf.GetComponent<SkinnedMeshRender>()?.mesh)
+				var mesh = perMesh.dstMf.mesh;
+				mesh.SetUVs( 0, perMesh.srcUvs.ToList() );
+				perMesh.dstMf.sharedMesh = mesh;
 			}
 
 			return dstTexture;
