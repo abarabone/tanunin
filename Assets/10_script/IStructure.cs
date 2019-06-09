@@ -17,6 +17,10 @@ namespace Abss.StructureObject
 		/// </summary>
 		void Reset();
 		
+		/// <summary>
+		/// 
+		/// </summary>
+		void Build( GameObject near, IStructurePart[] parts );
 		
 		/// <summary>
 		/// 破壊したい時はこれを呼ぶ

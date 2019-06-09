@@ -32,14 +32,22 @@ namespace Abss.StructureObject
 
 
 
-		static private GameObject buildNearMesh( IStructurePart[] parts )
+		static private GameObject buildNearMeshForDraw( IStructure structure, IStructurePart[] parts )
 		{
 
-			var q =
-				from part in parts
-				select part.Build()
-			;
+			foreach( var part in parts )
+			{
+				part.Build();
+			}
 
+			structure.Build()
+
+
+			return null;
+		}
+
+		static private GameObject buildNearMeshForHit( IStructurePart[] parts )
+		{
 
 			return null;
 		}
