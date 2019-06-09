@@ -62,14 +62,14 @@ namespace Abss.Common.Extension
 		}
 
 		
-		public static List<List<List<T>>> ToListRecursive3<T>
+		public static T[][][] ToArrayRecursive3<T>
 			( this IEnumerable<IEnumerable<IEnumerable<T>>> src )
 		{
-			return src.Select( x => x.ToListRecursive2() ).ToList();
+			return src.Select( x => x.ToArrayRecursive2() ).ToArray();
 		}
-		public static List<List<T>> ToListRecursive2<T>( this IEnumerable<IEnumerable<T>> src )
+		public static T[][] ToArrayRecursive2<T>( this IEnumerable<IEnumerable<T>> src )
 		{
-			return src.Select( x => x.ToList() ).ToList();
+			return src.Select( x => x.ToArray() ).ToArray();
 		}
 		//public static List<T> ToListRecursive<T>( this IEnumerable<T> src )
 		//{

@@ -6,7 +6,6 @@ using System.Linq;
 using UniRx;
 using System;
 using System.Runtime;
-using Abss.Common.Extension;
 
 namespace Abss.StructureObject
 {
@@ -20,9 +19,8 @@ namespace Abss.StructureObject
 	{
 
 		Renderer rendererOfStructure;
-
-
 		MaterialPropertyBlock mpb;
+
 
 		// ビットフラグ更新通知用
 		ISubject<Unit> visibilityFlagObserver = new Subject<Unit>();

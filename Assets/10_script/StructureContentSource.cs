@@ -5,34 +5,26 @@ using System;
 
 namespace Abss.StructureObject
 {
-	public class StructureContentSource : MonoBehaviour
+	public class StructureContentSource : MonoBehaviour, IStructureContent
 	{
 
 		private IStructurePart[]	parts;
 		private GameObject			near;
 		
-		public IStructurePart[] Parts
+
+		
+		public GameObject GetNear()
 		{
-			get
-			{
-				if( this.parts != null ) return this.parts;
-				
-				this.parts = this.GetComponentsInChildren<IStructurePart>( includeInactive:true );
-				return this.parts;
-			}
+			if( this.near != null ) return this.near;
+
+			return null;
 		}
 
-		public GameObject Near
+		public IStructurePart[] GetParts()
 		{
-			get
-			{
-				if( this.near != null ) return this.near;
-				
-				//this.near = 
-				return this.near;
-			}
-			
+			if( this.parts != null ) return this.parts;
+
+			return null;
 		}
-		
 	}
 }

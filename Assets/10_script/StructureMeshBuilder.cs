@@ -31,6 +31,19 @@ namespace Abss.StructureObject
 		}
 
 
+
+		static private GameObject buildNearMesh( IStructurePart[] parts )
+		{
+
+			var q =
+				from part in parts
+				select part.Build()
+			;
+
+
+			return null;
+		}
+
 	}
 
 

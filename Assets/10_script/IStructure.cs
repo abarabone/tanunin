@@ -35,5 +35,6 @@ namespace Abss.StructureObject
 		void SwitchToFar();
 		
 	}
+	
 }
 

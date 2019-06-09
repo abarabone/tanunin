@@ -18,12 +18,14 @@ namespace Abss.Geometry
 
 			var mmts = FromObject.QueryMeshMatsTransform_IfHaving( targetObjects ).ToList();
 
+			// 結合後
 			var qDstMats = (from x in mmts select x.mats)
 				.To(MaterialCombined.QueryCombine);
 			
 
 			var (dstTexture, uvRects) = packTexture_( qDstMats );
 
+			// ＵＶ位置→頂点数情報割り当て→ＵＶ配列生成→メッシュＵＶに割り当て
 			uvRects
 				.To( x => queryJoinUvRectToVtxInfo_PerSubPerMesh_(x, mmts, qDstMats) )
 				.To( x => queryCreateNewUvs_PerMesh_(x, mmts) )
