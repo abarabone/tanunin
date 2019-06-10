@@ -8,19 +8,9 @@ namespace Abss.StructureObject
 	{
 		
 		/// <summary>
-		/// 生成時初期化
-		/// </summary>
-		void Init();
-
-		/// <summary>
-		/// 再初期化
-		/// </summary>
-		void Reset();
-		
-		/// <summary>
 		/// 
 		/// </summary>
-		void Build( GameObject near, IStructurePart[] parts );
+		void Build();
 		
 		/// <summary>
 		/// 破壊したい時はこれを呼ぶ

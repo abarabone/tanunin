@@ -7,9 +7,7 @@ namespace Abss.StructureObject
 	public interface IStructureContent
 	{
 		
-		GameObject GetNear();
+		GameObject GetOrBuildNear();
 		
-		IStructurePart[] GetParts();
-
 	}
 }

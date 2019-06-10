@@ -8,23 +8,20 @@ namespace Abss.StructureObject
 	public class StructureContentSource : MonoBehaviour, IStructureContent
 	{
 
-		private IStructurePart[]	parts;
-		private GameObject			near;
+		GameObject	near;
 		
 
 		
-		public GameObject GetNear()
+		public GameObject GetOrBuildNear()
 		{
 			if( this.near != null ) return this.near;
 
-			return null;
+			var parts = this.GetComponentsInChildren<_StructurePartBase>();
+
+			this.near = StructureNearObjectBuilder.BuildNearObject( parts );
+			
+			return this.near;
 		}
 
-		public IStructurePart[] GetParts()
-		{
-			if( this.parts != null ) return this.parts;
-
-			return null;
-		}
 	}
 }

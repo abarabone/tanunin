@@ -6,6 +6,7 @@ using Unity.Linq;
 using System.Threading.Tasks;
 using System;
 using Abss.Common.Extension;
+using Abss.Geometry;
 
 namespace Abss.StructureObject
 {
@@ -32,7 +33,7 @@ namespace Abss.StructureObject
 
 
 
-		static private GameObject buildNearMeshForDraw( IStructure structure, IStructurePart[] parts )
+		static private GameObject buildNearMeshForDraw( _StructureBase structure, _StructurePartBase[] parts )
 		{
 
 			foreach( var part in parts )
@@ -40,8 +41,7 @@ namespace Abss.StructureObject
 				part.Build();
 			}
 
-			structure.Build()
-
+			MeshCombiner.BuildStructureWithPalletMeshElements( parts, structure.transform );
 
 			return null;
 		}
