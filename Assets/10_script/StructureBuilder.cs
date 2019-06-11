@@ -9,7 +9,7 @@ namespace Abss.StructureObject
 	public class StructureBuilder : MonoBehaviour, IDisposable
 	{
 		
-		public void Build( _StrucutureBase s )
+		public void Build( _StructureBase s )
 		{
 
 			

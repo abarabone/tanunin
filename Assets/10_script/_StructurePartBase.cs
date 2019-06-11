@@ -1,5 +1,6 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using UnityEngine;
 
 namespace Abss.StructureObject
@@ -8,25 +9,18 @@ namespace Abss.StructureObject
 	{
 		public int PartId { get; private set; }
 
-		public void Build()
+		public Task<Mesh> Build()
 		{
-			throw new System.NotImplementedException();
+			
+			var meshElementTasks = 
+
 		}
 
 		public bool FallDown( _StructureHit3 hitter, Vector3 force, Vector3 point )
 		{
 			throw new System.NotImplementedException();
 		}
-
-		public void Init()
-		{
-			throw new System.NotImplementedException();
-		}
-
-		public void Reset()
-		{
-			throw new System.NotImplementedException();
-		}
+		
 	}
 
 }

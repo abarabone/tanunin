@@ -1,6 +1,8 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using System.Linq;
+using System.Threading.Tasks;
 
 namespace Abss.StructureObject
 {
@@ -14,7 +16,12 @@ namespace Abss.StructureObject
 		Transform	tf;
 		
 
+		async void aaa( _StructurePartBase[] parts )
+		{
 
+			await Task.WhenAll( from part in parts select part.Build() );
+
+		}
 
 
 

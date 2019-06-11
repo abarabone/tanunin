@@ -1,18 +1,14 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using System.Threading.Tasks;
 
 namespace Abss.StructureObject
 {
 	public interface IStructurePart
 	{
-		
-		void Init();
 
-		void Reset();
-
-
-		void Build();
+		Task<Mesh> Build();
 
 		bool FallDown( _StructureHit3 hitter, Vector3 force, Vector3 point );
 
@@ -21,8 +17,8 @@ namespace Abss.StructureObject
 	public enum StructurePartType
 	{
 		inhittable,	// ヒットメッシュは必要ない、ドローメッシュだけでいい物体。	※視界を遮らない。
-		massive,	// 最も一般的な、触れて見える物体。							※視界を遮る。
-		occlusion,	// 見えるけど、触れない物体。								※視界を遮る。
+		massive,	// 最も一般的な、触れて見える物体。						※視界を遮る。
+		occlusion,	// 見えるけど、触れない物体。							※視界を遮る。
 		invisible,	// 触れるけど、見えないもの。ガラスなど。					※視界を遮らない。
 		fence,		// 見えて触れるけど、弾丸がヒットしない。					※視界を遮る。
 	}
