@@ -8,7 +8,7 @@ namespace Abss.StructureObject
 	public interface IStructurePart
 	{
 
-		Task<Mesh> Build();
+		Task Build();
 
 		bool FallDown( _StructureHit3 hitter, Vector3 force, Vector3 point );
 
