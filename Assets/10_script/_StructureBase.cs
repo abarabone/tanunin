@@ -16,14 +16,6 @@ namespace Abss.StructureObject
 		Transform	tf;
 		
 
-		async void aaa( _StructurePartBase[] parts )
-		{
-
-			await Task.WhenAll( from part in parts select part.Build() );
-
-		}
-
-
 
 		public void Build()
 		{

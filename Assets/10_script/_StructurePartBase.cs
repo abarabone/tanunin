@@ -10,9 +10,11 @@ namespace Abss.StructureObject
 {
 	public class _StructurePartBase : MonoBehaviour, IStructurePart
 	{
+
 		public int PartId { get; private set; }
 
-		public async Task Build( int partId )
+
+		public async Task Build()
 		{
 			
 			var gos =
@@ -23,9 +25,9 @@ namespace Abss.StructureObject
 			var combineElementFunc =
 				MeshCombiner.BuildNormalMeshElements( gos, this.transform, isCombineSubMeshes: false );
 
-			var meshElementTask = Task.Run( combineElementFunc );
+			var meshElements = await Task.Run( combineElementFunc );
 
-
+			
 			return;
 		}
 
@@ -43,7 +45,7 @@ namespace Abss.StructureObject
 	public struct HitLocalBoundsUnit
 	{
 		
-		/// <summary>ワールド座標上のメッシュ境界ボックス中心</summary>
+		/// <summary>モデル座標上のメッシュ境界ボックス中心</summary>
 		public Vector3	structureViewCenter	{ get; private set; }
 
 		/// <summary>メッシュ境界ボックスの外接球半径</summary>
@@ -70,12 +72,11 @@ namespace Abss.StructureObject
 		/// 球と境界ボックスの接触を判定する。
 		/// 判定はローカル座標で行う。そのため雛形式でも実体所持式でも同じ処理で可能。
 		/// </summary>
-		/// <param name="otherCenter">球の中心（ワールド座標）</param>
-		/// <param name="otherRadius">球の半径（ワールド座標）</param>
+		/// <param name="otherCenter">球の中心（モデル座標）</param>
+		/// <param name="otherRadius">球の半径</param>
 		public bool check( Vector3 otherCenter, float otherRadius )
 		{
 			
-
 			// 相手の球をローカル座標に変換
 
 			var localOtherCenter = otherCenter - structureViewCenter;
@@ -110,6 +111,9 @@ namespace Abss.StructureObject
 		/// <summary>三角形数</summary>
 		public int	triangleLength	{ get; private set; }
 		
+		/// <summary></summary>
+		public int[] Triangles { get; private set; }
+
 		
 		/// <summary>
 		/// インデックス位置を三角形位置として保管する。
