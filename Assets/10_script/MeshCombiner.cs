@@ -49,6 +49,8 @@ namespace Abss.Geometry
 				}
 			}
 
+			//if( this.Normals != null ) mesh.RecalculateNormals();//
+			mesh.RecalculateBounds();
 			return mesh;
 		}
 	}
@@ -116,7 +118,7 @@ namespace Abss.Geometry
 		{
 			var mmts = FromObject.QueryMeshMatsTransform_IfHaving( gameObjects ).ToArray();
 
-			return BuildUnlitMeshElements( mmts, tfBase, isCombineSubMeshes );
+			return BuildNormalMeshElements( mmts, tfBase, isCombineSubMeshes );
 		}
 		
 		static Func<MeshElements>
@@ -141,7 +143,7 @@ namespace Abss.Geometry
 		/// Mesh 要素を結合するデリゲートを返す。Structure オブジェクト用。
 		/// </summary>
 		static public Func<MeshElements>
-			BuildStructureWithPalletMeshElements ( IEnumerable<_StructurePartBase> parts, Transform tfBase )
+			BuildStructureWithPalletMeshElements( IEnumerable<_StructurePartBase> parts, Transform tfBase )
 		{
 			var gameObjects = from part in parts select part.gameObject;
 			var mmts = FromObject.QueryMeshMatsTransform_IfHaving( gameObjects ).ToArray();
@@ -150,7 +152,7 @@ namespace Abss.Geometry
 		}
 		
 		static Func<MeshElements>
-			BuildStructureWithPalletMeshElements ( (Mesh mesh, Material[] mats, Transform tf)[] mmts, Transform tfBase )
+			BuildStructureWithPalletMeshElements( (Mesh mesh, Material[] mats, Transform tf)[] mmts, Transform tfBase )
 		{
 
 			var f = BuildNormalMeshElements( mmts, tfBase, isCombineSubMeshes:true );
@@ -212,18 +214,12 @@ namespace Abss.Geometry
 		{
 			var qNormal =
 				from xy in (normalsPerMeshes, mtObjects).Zip( (x,y)=>(nms:x, mt:y) )
-				let mt = xy.mt * mtBaseInv
+				let mt = mtBaseInv * xy.mt
 				from nm in xy.nms
 				select mt.MultiplyVector( nm )
 				;
 				
 			return qNormal.ToArray();
-
-			//Vector3[] recalculateNormals_( Mesh mesh_ )
-			//{
-			//	mesh_.RecalculateNormals();
-			//	return mesh_.normals;
-			//}
 		}
 
 		
@@ -551,17 +547,9 @@ namespace Abss.Geometry
 		/// </summary>
 		public static IEnumerable<int> ReverseEvery3_IfMinusScale( this IEnumerable<int> indices, Matrix4x4 mtObject )
 		{
-			if( isMinusScale_(in mtObject) ) return reverseEvery3_(indices);
+			if( mtObject.IsMuinusScale() ) return reverseEvery3_(indices);
 
 			return indices;
-
-			bool isMinusScale_( in Matrix4x4 mt )
-			{
-				var up = Vector3.Cross( mt.GetRow( 0 ), mt.GetRow( 2 ) );
-				return Vector3.Dot( up, mt.GetRow( 1 ) ) > 0.0f;
-				//var scl = tf.lossyScale;
-				//return scl.x * scl.y * scl.z < 0.0f;
-			}
 
 			IEnumerable<int> reverseEvery3_( IEnumerable<int> indecies_ )
 			{
@@ -572,9 +560,9 @@ namespace Abss.Geometry
 						var i0 = e.Current; e.MoveNext();
 						var i1 = e.Current; e.MoveNext();
 						var i2 = e.Current;
-						yield return i0;//210でもいい？
-						yield return i2;
+						yield return i2;//210でもいい？
 						yield return i1;
+						yield return i0;
 					}
 				}
 			}

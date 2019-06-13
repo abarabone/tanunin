@@ -6,6 +6,7 @@ using Abss.Geometry;
 using Abss.Common.Extension;
 using System.Linq;
 using Unity.Linq;
+using System;
 
 namespace Abss.StructureObject
 {
@@ -21,6 +22,12 @@ namespace Abss.StructureObject
 			var gos =
 				from renderer in this.GetComponentsInChildren<Renderer>().EmptyIfNull()
 				select renderer.gameObject
+				;
+
+			IEnumerable<GameObject> queryTargets_( GameObject go_ ) =>
+				from child in go_.Children()
+				where queryTargets_(child) != 
+				select x
 				;
 			
 			var combineElementFunc =

@@ -180,4 +180,14 @@ namespace Abss.Common.Extension
 		}
 	}
 
+	public static class VectorExtension
+	{
+		public static bool IsMuinusScale( in this Matrix4x4 mt )
+		{
+			var up = Vector3.Cross( mt.GetRow( 0 ), mt.GetRow( 2 ) );
+			return Vector3.Dot( up, mt.GetRow( 1 ) ) > 0.0f;
+			//var scl = tf.lossyScale;
+			//return scl.x * scl.y * scl.z < 0.0f;
+		}
+	}
 }
