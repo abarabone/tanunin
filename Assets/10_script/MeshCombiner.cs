@@ -20,7 +20,7 @@ namespace Abss.Geometry
 		public Vector3[]	Vertecies;
 		public Vector3[]	Normals;
 		public Vector2[]	Uvs;
-		public int[][]		IndeciesPerSubmesh;
+		public int[][]		IndicesPerSubmesh;
 		public Vector3[]	Tangents;
 		public Color32[]	Color32s;
 
@@ -31,10 +31,8 @@ namespace Abss.Geometry
 		// 結合後の材質（
 		public Material[] materials;
 
-		/// <summary>
-		/// Mesh を生成する。
-		/// </summary>
-		public Mesh CreateUnlitMesh()
+
+		public Mesh CreateMesh()
 		{
 			var mesh = new Mesh();
 
@@ -42,9 +40,10 @@ namespace Abss.Geometry
 			if( this.Normals != null ) mesh.normals = this.Normals;
 			if( this.Uvs != null ) mesh.uv = this.Uvs;
 			if( this.Color32s != null ) mesh.colors32 = this.Color32s;
-			if( this.IndeciesPerSubmesh != null )
+			if( this.IndicesPerSubmesh != null )
 			{
-				foreach( var x in this.IndeciesPerSubmesh.Select( (idxs,i) => (idxs,i) ) )
+				mesh.subMeshCount = this.IndicesPerSubmesh.Length;
+				foreach( var x in this.IndicesPerSubmesh.Select( (idxs,i) => (idxs,i) ) )
 				{
 					mesh.SetTriangles( x.idxs, submesh:x.i, calculateBounds:true );
 				}
@@ -96,9 +95,9 @@ namespace Abss.Geometry
 					Vertecies = ConvertUtility.ToVerticesArray( vtxss, mtObjects, mtBaseInv ),
 					Uvs = uvss.SelectMany( uvs => uvs ).ToArray(),
 
-					IndeciesPerSubmesh = isCombineSubMeshes
+					IndicesPerSubmesh = isCombineSubMeshes
 						? ConvertUtility.ToIndicesArray( vtxss, idxsss, mtObjects )
-						: ConvertUtility.ToIndicesArray( vtxss, idxsss, mtObjects, mmts, materialsCombined ),
+						: ConvertUtility.ToIndicesArray( vtxss, idxsss, mtObjects, ( from x in mmts select x.mats ), materialsCombined ),
 
 					MtBaseInv = mtBaseInv,
 					mtObjects = mtObjects,
@@ -169,7 +168,10 @@ namespace Abss.Geometry
 			{
 				var me = f();
 				
-				me.Color32s = ConvertUtility.ToColor32Array( vertexCount_PerSubmeshPerMesh, partId_PerMesh, mmts, me.materials );
+				var materials_PerMesh = ( from x in mmts select x.mats );
+				var materialsCombined = me.materials;
+				me.Color32s = ConvertUtility.ToColor32Array
+					( vertexCount_PerSubmeshPerMesh, partId_PerMesh, materials_PerMesh, materialsCombined );
 
 				return me;
 			};
@@ -232,7 +234,7 @@ namespace Abss.Geometry
 			(
 				IEnumerable<IEnumerable<int>> vertexCount_PerSubmeshPerMesh,
 				IEnumerable<int> partsIds_PerMesh,
-				IEnumerable<(Mesh mesh, Material[] mats, Transform tf)> mmts,
+				IEnumerable<Material[]> materials_PerMesh,
 				IEnumerable<Material> materialsCombined
 			)
 		{
@@ -246,7 +248,7 @@ namespace Abss.Geometry
 			
 
 			var qDstMatHashes = from mat in materialsCombined select mat.GetHashCode();
-			var qSrcMatHashes = ( from x in mmts select x.mats ).To(PerSubMeshPerMesh.QueryMaterialHash);
+			var qSrcMatHashes = materials_PerMesh.To(PerSubMeshPerMesh.QueryMaterialHash);
 			
 			// パレットＩＤをすべての頂点ごとにクエリする。
 			var qPallets_PerVtx =
@@ -351,7 +353,7 @@ namespace Abss.Geometry
 				from index in IndexUtility.ReverseEvery3_IfMinusScale( idxs, src.mt )
 				select src.baseVtx + index;
 
-			return Enumerable.Repeat( qIndex.ToArray(), 1 ).ToArrayRecursive2();
+			return Enumerable.Repeat( qIndex, 1 ).ToArrayRecursive2();
 		}
 		
 		/// <summary>
@@ -363,12 +365,12 @@ namespace Abss.Geometry
 				IEnumerable<Vector3[]> vertices_PerMesh,
 				IEnumerable<IEnumerable<int[]>> indices_PerSubmeshPerMesh,
 				IEnumerable<Matrix4x4> mtPart_PerMesh,
-				IEnumerable<(Mesh mesh, Material[] mats, Transform tf)> mmts,
+				IEnumerable<Material[]> materials_PerMesh,
 				IEnumerable<Material> materialsCombined
 			)
 		{
 			var qDstMatHashes = from mat in materialsCombined select mat.GetHashCode();
-			var qSrcMatHashes = ( from x in mmts select x.mats ).To(PerSubMeshPerMesh.QueryMaterialHash);
+			var qSrcMatHashes = materials_PerMesh.To(PerSubMeshPerMesh.QueryMaterialHash);
 			
 			var idxsss = indices_PerSubmeshPerMesh;
 			var mts = mtPart_PerMesh;

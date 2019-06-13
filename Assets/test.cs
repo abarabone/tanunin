@@ -26,7 +26,7 @@ public class test : _StructurePartBase
 
 		var go = results
 			.First()
-			.CreateUnlitMesh().ToWriteOnly()
+			.CreateMesh().ToWriteOnly()
 			.AddToNewGameObject( mat );
 		
 		go.transform.position = Vector3.one;

@@ -5,6 +5,7 @@ using UnityEngine;
 using Abss.Geometry;
 using Abss.Common.Extension;
 using System.Linq;
+using Unity.Linq;
 
 namespace Abss.StructureObject
 {
@@ -27,8 +28,15 @@ namespace Abss.StructureObject
 
 			var meshElements = await Task.Run( combineElementFunc );
 
-			
-			return;
+
+			var go = this.gameObject;
+
+			var mf = go.GetComponent<MeshFilter>().As() ?? go.AddComponent<MeshFilter>().As();
+			mf.sharedMesh = meshElements.CreateMesh();
+
+			var mr = go.GetComponent<MeshRenderer>().As() ?? go.AddComponent<MeshRenderer>().As();
+			mr.materials = meshElements.materials;
+
 		}
 
 		public bool FallDown( _StructureHit3 hitter, Vector3 force, Vector3 point )

@@ -15,8 +15,8 @@ namespace Abss.StructureObject
 			var parts = this.GetComponentsInChildren<_StructurePartBase>();
 			
 			var qParts =
-				from part in parts.Select( (x,i)=>(x,i) )
-				select part.x.Build()
+				from part in parts
+				select part.Build()
 				;
 
 			await Task.WhenAll( qParts );
