@@ -14,12 +14,12 @@ namespace Abss.StructureObject
 			
 			var parts = this.GetComponentsInChildren<_StructurePartBase>();
 			
-			var qParts =
+			var qBuildPartsTasks =
 				from part in parts
-				select part.Build()
+				select part.BuildAsync()
 				;
 
-			await Task.WhenAll( qParts );
+			await Task.WhenAll( qBuildPartsTasks );
 
 		}
 

@@ -85,6 +85,15 @@ namespace Abss.Common.Extension
 		{
 			return src.SelectMany( x => x );
 		}
+		
+		//public static IEnumerable<T> Prepend<T>( this IEnumerable<T> src, T element )
+		//{
+		//	return Enumerable.Repeat( element, 1 ).Concat( src );
+		//}
+		//public static IEnumerable<T> Append<T>( this IEnumerable<T> src, T element )
+		//{
+		//	return src.Concat( Enumerable.Repeat( element, 1 ) );
+		//}
 	}
 
 	public static class ConversionExtension
@@ -177,6 +186,12 @@ namespace Abss.Common.Extension
 		public static T As<T>( this T obj ) where T:UnityEngine.Object
 		{
 			return obj != null ? obj : null;
+		}
+
+		public static void DestroyComponentIfExists<T>( this GameObject gameObject ) where T:Component
+		{
+			var c = gameObject.GetComponent<T>();
+			if( c != null ) UnityEngine.Object.Destroy( c );
 		}
 	}
 

@@ -16,34 +16,55 @@ namespace Abss.StructureObject
 		public int PartId { get; private set; }
 
 
-		public async Task Build()
+		public async Task BuildAsync()
 		{
-			
-			var gos =
-				from renderer in this.GetComponentsInChildren<Renderer>().EmptyIfNull()
-				select renderer.gameObject
-				;
 
+			var buildTargets = queryTargets_( this.gameObject ).ToArray();
+
+			var meshElements = await combineChildMeshesAsync_( buildTargets, this.transform );
+
+
+			replaceOrAddComponents_CombinedMeshAndMaterials_( this.gameObject, meshElements );
+			
+			removeOrigineComponents_( buildTargets.Skip(1) );
+			
+			return;
+
+			
 			IEnumerable<GameObject> queryTargets_( GameObject go_ ) =>
-				from child in go_.Children()
-				where queryTargets_(child) != 
-				select x
-				;
-			
-			var combineElementFunc =
-				MeshCombiner.BuildNormalMeshElements( gos, this.transform, isCombineSubMeshes: false );
+				(
+					from child in go_.Children()
+					where child.GetComponent<_StructurePartBase>() == null
+					from x in queryTargets_(child)
+					select x
+				)
+				.Prepend( go_ );
 
-			var meshElements = await Task.Run( combineElementFunc );
+			async Task<MeshElements> combineChildMeshesAsync_( IEnumerable<GameObject> targets_, Transform tf_ )
+			{
+				var combineElementFunc =
+					MeshCombiner.BuildNormalMeshElements( targets_, tf_, isCombineSubMeshes: false );
 
+				return await Task.Run( combineElementFunc );
+			}
 
-			var go = this.gameObject;
+			void removeOrigineComponents_( IEnumerable<GameObject> targets_ )
+			{
+				foreach( var go in targets_ )
+				{
+					go.DestroyComponentIfExists<MeshFilter>();
+					go.DestroyComponentIfExists<Renderer>();
+				}
+			}
 
-			var mf = go.GetComponent<MeshFilter>().As() ?? go.AddComponent<MeshFilter>().As();
-			mf.sharedMesh = meshElements.CreateMesh();
+			void replaceOrAddComponents_CombinedMeshAndMaterials_( GameObject gameObject_, MeshElements me_ )
+			{
+				var mf = gameObject_.GetComponent<MeshFilter>().As() ?? gameObject_.AddComponent<MeshFilter>().As();
+				mf.sharedMesh = me_.CreateMesh();
 
-			var mr = go.GetComponent<MeshRenderer>().As() ?? go.AddComponent<MeshRenderer>().As();
-			mr.materials = meshElements.materials;
-
+				var mr = gameObject_.GetComponent<MeshRenderer>().As() ?? gameObject_.AddComponent<MeshRenderer>().As();
+				mr.materials = me_.materials;
+			}
 		}
 
 		public bool FallDown( _StructureHit3 hitter, Vector3 force, Vector3 point )

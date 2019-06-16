@@ -38,7 +38,7 @@ namespace Abss.StructureObject
 
 			foreach( var part in parts )
 			{
-				part.Build();
+				part.BuildAsync();
 			}
 
 			MeshCombiner.BuildStructureWithPalletMeshElements( parts, structure.transform );

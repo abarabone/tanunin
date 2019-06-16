@@ -409,11 +409,10 @@ namespace Abss.Geometry
 			return
 				from obj in gameObjects
 				let r = obj.GetComponent<SkinnedMeshRenderer>().As()
-				let mesh = r?.sharedMesh ?? obj.GetComponent<MeshFilter>().sharedMesh
-				let mats = r?.sharedMaterials ?? obj.GetComponent<Renderer>().sharedMaterials
-				select (mesh, mats, obj.transform) into x
-				where x.mesh != null || x.mats != null
-				select x
+				let mesh = r?.sharedMesh ?? obj.GetComponent<MeshFilter>().As()?.sharedMesh
+				let mats = r?.sharedMaterials ?? obj.GetComponent<Renderer>().As()?.sharedMaterials
+				where mesh != null && mats != null
+				select (mesh, mats, obj.transform)
 				;
 		}
 		
@@ -451,7 +450,7 @@ namespace Abss.Geometry
 				.Select( vtxs => vtxs.Count() )
 				.Scan( seed: 0, ( pre, cur ) => pre + cur )
 				;
-			return Enumerable.Repeat( 0, 1 ).Concat( qVtxCount );
+			return qVtxCount.Prepend( 0 );
 			// { 0 } + { mesh 0 の頂点数, mesh 1 の頂点数, ... }
 		}
 
