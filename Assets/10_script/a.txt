@@ -1,0 +1,14 @@
+
+・structure 準備
+　・contents 複製
+　　・part mesh 結合
+　・structure mesh 結合
+　・near 生成
+　・break controller 生成
+
+・structure 初期化
+　・part 初期化
+　　・hit indices
+　　・hit bbox
+　・hitter
+　・near, break, env, far, 初期化
