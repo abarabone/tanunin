@@ -19,52 +19,6 @@ namespace Abss.StructureObject
 		public async Task BuildAsync()
 		{
 
-			var buildTargets = queryTargets_( this.gameObject ).ToArray();
-
-			var meshElements = await combineChildMeshesAsync_( buildTargets, this.transform );
-
-
-			replaceOrAddComponents_CombinedMeshAndMaterials_( this.gameObject, meshElements );
-			
-			removeOrigineComponents_( buildTargets.Skip(1) );
-			
-			return;
-
-			
-			IEnumerable<GameObject> queryTargets_( GameObject go_ ) =>
-				(
-					from child in go_.Children()
-					where child.GetComponent<_StructurePartBase>() == null
-					from x in queryTargets_(child)
-					select x
-				)
-				.Prepend( go_ );
-
-			async Task<MeshElements> combineChildMeshesAsync_( IEnumerable<GameObject> targets_, Transform tf_ )
-			{
-				var combineElementFunc =
-					MeshCombiner.BuildNormalMeshElements( targets_, tf_, isCombineSubMeshes: false );
-
-				return await Task.Run( combineElementFunc );
-			}
-
-			void removeOrigineComponents_( IEnumerable<GameObject> targets_ )
-			{
-				foreach( var go in targets_ )
-				{
-					go.DestroyComponentIfExists<MeshFilter>();
-					go.DestroyComponentIfExists<Renderer>();
-				}
-			}
-
-			void replaceOrAddComponents_CombinedMeshAndMaterials_( GameObject gameObject_, MeshElements me_ )
-			{
-				var mf = gameObject_.GetComponent<MeshFilter>().As() ?? gameObject_.AddComponent<MeshFilter>().As();
-				mf.sharedMesh = me_.CreateMesh();
-
-				var mr = gameObject_.GetComponent<MeshRenderer>().As() ?? gameObject_.AddComponent<MeshRenderer>().As();
-				mr.materials = me_.materials;
-			}
 		}
 
 		public bool FallDown( _StructureHit3 hitter, Vector3 force, Vector3 point )

@@ -16,6 +16,7 @@ namespace Abss.StructureObject
 		{
 			if( this.near != null ) return this.near;
 
+
 			var parts = this.GetComponentsInChildren<_StructurePartBase>();
 
 			this.near = StructureNearObjectBuilder.BuildNearObject( parts );
