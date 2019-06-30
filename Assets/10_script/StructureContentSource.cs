@@ -2,24 +2,26 @@
 using System.Collections.Generic;
 using UnityEngine;
 using System;
+using System.Linq;
+using System.Threading.Tasks;
 
 namespace Abss.StructureObject
 {
-	public class StructureContentSource : MonoBehaviour, IStructureContent
+	public class StructureContentSource : MonoBehaviour//, IStructureContent
 	{
 
 		GameObject	near;
 		
 
 		
-		public GameObject GetOrBuildNear()
+		public async Task<GameObject> GetOrBuildNear()
 		{
 			if( this.near != null ) return this.near;
 
 
 			var parts = this.GetComponentsInChildren<_StructurePartBase>();
-
-			this.near = StructureNearObjectBuilder.BuildNearObject( parts );
+			
+			this.near = await StructureNearObjectBuilder.BuildNearObjectAsync( parts, this.transform );
 			
 			return this.near;
 		}

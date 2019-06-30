@@ -3,11 +3,12 @@ using System.Collections.Generic;
 using UnityEngine;
 using System.Linq;
 using System.Threading.Tasks;
+using Abss.Geometry;
 
 namespace Abss.StructureObject
 {
 	
-	public class _StructureBase : MonoBehaviour, IStructure
+	public class _StructureBase : MonoBehaviour//, IStructure
 	{
 
 		GameObject	near;
@@ -17,12 +18,12 @@ namespace Abss.StructureObject
 		
 
 
-		public void Build()
+		public async Task BuildAsync()
 		{
 			
-			var content = this.GetComponent<IStructureContent>();
-			var near_ = content.GetOrBuildNear();
-			
+			var content = this.GetComponentInChildren<StructureContentSource>();//IStructureContent>();
+			var near_ = await content.GetOrBuildNear();
+
 			var rb = getOrCreateRigidBody_();
 			initRigidbody_( rb );
 

@@ -17,19 +17,18 @@ namespace Abss.StructureObject
 	static public class StructureNearObjectBuilder
 	{
 
-		static public async GameObject BuildNearObjectAsync( this _StructurePartBase[] parts )
+		static public async Task<GameObject> BuildNearObjectAsync( this _StructurePartBase[] parts, Transform tfBase )
 		{
+			
+			await Task.WhenAll( from pt in parts select pt.CombinePartMeshesAsync() );
 
-			return null;
+			var meshElement = await Task.Run( MeshCombiner.BuildNormalMeshElements( parts.Select(x=>x.gameObject), tfBase ) );//.BuildStructureWithPalletMeshElements( parts, tfBase ) );
 
+			var go = new GameObject();
+			go.AddComponent<MeshFilter>().mesh = meshElement.CreateMesh();
+			go.AddComponent<MeshRenderer>().materials = meshElement.materials;
 
-			void combinePartMeshes_( IEnumerable<_StructurePartBase> parts_ )
-			{
-				foreach( var pt in parts_ )
-				{
-					pt.
-				}
-			}
+			return go;
 		}
 
 		
@@ -67,19 +66,20 @@ namespace Abss.StructureObject
 	static class NearObjectBuilder
 	{
 		
-		public static async Task CombinePartMeshes( _StructurePartBase part )
+		/// <summary>
+		/// パーツが子以下の改装にメッシュを持っていた場合、１つのメッシュとなるように結合する。
+		/// </summary>
+		public static async Task CombinePartMeshesAsync( this _StructurePartBase part )
 		{
-			// 
 
+			// 子孫にメッシュが存在すれば、引っ張ってきて結合。１つのメッシュにする。
+			// （ただしパーツだった場合は、結合対象から除外する）
 			var buildTargets = queryTargets_Recursive_( part.gameObject ).ToArray();
-
+			if( buildTargets.Length == 1 ) return;
 			var meshElements = await combineChildMeshesAsync_( buildTargets, part.transform );
 
-
 			// 
-
 			replaceOrAddComponents_CombinedMeshAndMaterials_( part.gameObject, meshElements );
-			
 			removeOrigineComponents_( buildTargets.Skip(1) );
 			
 			return;

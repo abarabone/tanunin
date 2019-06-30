@@ -12,14 +12,13 @@ namespace Abss.StructureObject
 		async void Awake()
 		{
 			
-			var parts = this.GetComponentsInChildren<_StructurePartBase>();
-			
-			var qBuildPartsTasks =
-				from part in parts
-				select part.BuildAsync()
-				;
+			var a = from aa in this.GetComponentsInChildren<Renderer>() select aa.gameObject;
+			var tex = Geometry.TexturePacker.PackTextureAndTranslateUv( a );
+			foreach( var r in this.GetComponentsInChildren<Renderer>() ) foreach( var m in r.materials ) m.mainTexture = tex;
 
-			await Task.WhenAll( qBuildPartsTasks );
+			var structures = this.GetComponentsInChildren<_StructureBase>();
+			
+			await Task.WhenAll( from st in structures select st.BuildAsync() );
 
 		}
 

@@ -10,7 +10,7 @@ namespace Abss.StructureObject
 		/// <summary>
 		/// 
 		/// </summary>
-		void Build();
+		void BuildAsync();
 		
 		/// <summary>
 		/// 破壊したい時はこれを呼ぶ
