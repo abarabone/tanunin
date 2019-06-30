@@ -380,7 +380,7 @@ namespace Abss.Geometry
 				from perSub in (src.idxss, src.hashes).Zip( (x,y)=>(idxs:x, hash:y, src.mt, src.baseVtx) )
 				group perSub by perSub.hash
 				;
-
+			
 			var qIdxsPerDstMat =
 				from dstHash in qDstMatHashes
 				join srcs in qSrcMatGroups on dstHash equals srcs.Key

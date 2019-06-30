@@ -76,6 +76,7 @@ namespace Abss.StructureObject
 			// （ただしパーツだった場合は、結合対象から除外する）
 			var buildTargets = queryTargets_Recursive_( part.gameObject ).ToArray();
 			if( buildTargets.Length == 1 ) return;
+
 			var meshElements = await combineChildMeshesAsync_( buildTargets, part.transform );
 
 			// 
@@ -97,7 +98,7 @@ namespace Abss.StructureObject
 			async Task<MeshElements> combineChildMeshesAsync_( IEnumerable<GameObject> targets_, Transform tf_ )
 			{
 				var combineElementFunc =
-					MeshCombiner.BuildNormalMeshElements( targets_, tf_, isCombineSubMeshes: false );
+					MeshCombiner.BuildNormalMeshElements( targets_, tf_, isCombineSubMeshes:false );
 
 				return await Task.Run( combineElementFunc );
 			}
