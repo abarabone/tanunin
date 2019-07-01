@@ -142,7 +142,8 @@ namespace Abss.Geometry
 					var mr = perMesh.dstTf.GetComponent<MeshRenderer>().As();
 				
 					var mesh = smr?.sharedMesh ?? mf?.mesh;
-					mesh.SetUVs( 0, perMesh.srcUvs.ToList() );
+					//mesh.SetUVs( 0, perMesh.srcUvs.ToList() );
+					mesh.uv = perMesh.srcUvs.ToArray();
 
 					if( smr != null ) smr.sharedMesh = mesh;
 					if( mf != null ) mf.mesh = mesh;

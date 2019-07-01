@@ -98,7 +98,7 @@ namespace Abss.StructureObject
 			async Task<MeshElements> combineChildMeshesAsync_( IEnumerable<GameObject> targets_, Transform tf_ )
 			{
 				var combineElementFunc =
-					MeshCombiner.BuildNormalMeshElements( targets_, tf_, isCombineSubMeshes:false );
+					MeshCombiner.BuildNormalMeshElements( targets_, tf_, isCombineSubMeshes:true );
 
 				return await Task.Run( combineElementFunc );
 			}

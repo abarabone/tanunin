@@ -85,7 +85,7 @@ namespace Abss.Geometry
 			
 			var mtBaseInv = tfBase.worldToLocalMatrix;
 			var mtObjects = ( from x in mmts select x.tf.localToWorldMatrix ).ToArray();
-
+			Debug.Log( string.Join(";",mmts.SelectMany(x=>x.mats).Select(x=>$"{x.name} {x.GetHashCode()}")) );
 
 			return () =>
 			{
@@ -266,7 +266,8 @@ namespace Abss.Geometry
 			
 			
 			/// <summary>
-			/// パレットＩＤをすべての頂点ごとにクエリする。
+			/// パーツＩＤをすべての頂点ごとにクエリする。
+			/// パーツＩＤは、各パーツに設定された partid から取得する。
 			/// </summary>
 			IEnumerable<(int int4Index, int memberIndex, int bitIndex)>
 				queryPartIdx_PerVtx_( IEnumerable<int> vtxCount_PerMesh_, IEnumerable<int> partId_PerMesh_ )
@@ -294,6 +295,7 @@ namespace Abss.Geometry
 			
 			/// <summary>
 			/// パレットＩＤをすべての頂点ごとにクエリする。
+			/// パレットＩＤは、各サブメッシュに対応する、結合後マテリアルのインデックスを取得する。
 			/// </summary>
 			IEnumerable<int> queryePallet_PerVtx_
 				(
@@ -344,12 +346,13 @@ namespace Abss.Geometry
 			
 			var qIndex =
 				from xyz_ in (indices_PerSubmeshPerMesh, mts, qBaseVtxs).Zip()
-				select (idxss: xyz_.x, mt: xyz_.y, baseVtx: xyz_.z) into src
-				from idxs in src.idxss
-				from index in IndexUtility.ReverseEvery3_IfMinusScale( idxs, src.mt )
-				select src.baseVtx + index;
+				select (idxss: xyz_.x, mt: xyz_.y, baseVtx: xyz_.z) into srcPerMesh
+				from idxs in srcPerMesh.idxss
+				from index in IndexUtility.ReverseEvery3_IfMinusScale( idxs, srcPerMesh.mt )
+				select srcPerMesh.baseVtx + index;
 
-			return Enumerable.Repeat( qIndex, 1 ).ToArrayRecursive2();
+			return new int[][] { qIndex.ToArray() };
+			//return Enumerable.Repeat( qIndex, 1 ).ToArrayRecursive2();
 		}
 		
 		/// <summary>
