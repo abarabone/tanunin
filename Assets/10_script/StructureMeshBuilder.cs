@@ -26,7 +26,7 @@ namespace Abss.StructureObject
 
 			var go = new GameObject();
 			go.AddComponent<MeshFilter>().mesh = meshElement.CreateMesh();
-			go.AddComponent<MeshRenderer>().materials = meshElement.materials;
+			go.AddComponent<MeshRenderer>().material = new Material( meshElement.materials[0] );
 
 			return go;
 		}

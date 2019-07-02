@@ -11,33 +11,42 @@ namespace Abss.Geometry
 	{
 
 		/// <summary>
-		/// 全テクスチャを結合して返し、ソースとなったオブジェクトのＵＶと材質を差し替える。
+		/// 全テクスチャを結合して、ソースとなったオブジェクトのＵＶと材質を差し替える。
+		/// 材質は、元同じだったもの同士は、新しい材質でも同じものを共有する。
 		/// </summary>
-		public static Texture PackTextureAndTranslateUv( IEnumerable<GameObject> targetObjects )
+		public static void PackTextureAndTranslateUv( IEnumerable<GameObject> targetObjects )
 		{
 
-			var mmts = FromObject.QueryMeshMatsTransform_IfHaving( targetObjects ).ToList();
+			var mmts = FromObject.QueryMeshMatsTransform_IfHaving( targetObjects ).ToArray();
 
-			// 結合後
-			var qDstMats = (from x in mmts select x.mats)
-				.To(MaterialCombined.QueryCombine);
+
+			// 重複のない材質配列を生成。
+			var dstMats = (from x in mmts select x.mats)
+				.To(MaterialCombined.QueryCombine)
+				.ToArray()
+				;
 			
+			// テクスチャを結合する。
+			var (dstTexture, uvRects) = packTexture_( dstMats );
 
-			var (dstTexture, uvRects) = packTexture_( qDstMats );
 
 			// ＵＶ位置→頂点数情報割り当て→ＵＶ配列生成→メッシュＵＶに割り当て
 			uvRects
-				.To( x => queryJoinUvRectToVtxInfo_PerSubPerMesh_(x, mmts, qDstMats) )
+				.To( x => queryJoinUvRectToVtxInfo_PerSubPerMesh_(x, mmts, dstMats) )
 				.To( x => queryCreateNewUvs_PerMesh_(x, mmts) )
-				.To( x => translateUvsInMeshes_(x, mmts, dstTexture) );
+				.To( x => translateUvsInMeshes_(x, mmts) )
+				;
 			
-			return dstTexture;
+			// 全材質を新テクスチャー材質に差し替える。
+			setNewMats_( dstMats, dstTexture, mmts );
+
+			return;
 			
 
 
 			(Texture, Rect[]) packTexture_( IEnumerable<Material> qDstMats_ )
 			{
-				var texs = (from mat in qDstMats select mat.mainTexture).Cast<Texture2D>().ToArray();
+				var texs = (from mat in dstMats select mat.mainTexture).Cast<Texture2D>().ToArray();
 				
 				var dstTexture_ = new Texture2D( width:0, height:0, textureFormat:TextureFormat.ARGB32, mipChain:true );
 				//var dstTexture_ = new Texture2D( 0, 0 );
@@ -52,7 +61,7 @@ namespace Abss.Geometry
 				queryJoinUvRectToVtxInfo_PerSubPerMesh_
 				(
 					Rect[] uvRects_,
-					List<(Mesh mesh, Material[] mats, Transform tf)> mmts_,
+					IEnumerable<(Mesh mesh, Material[] mats, Transform tf)> mmts_,
 					IEnumerable<Material> qDstMats_
 				)
 			{
@@ -97,7 +106,7 @@ namespace Abss.Geometry
 			IEnumerable<IEnumerable<Vector2>> queryCreateNewUvs_PerMesh_
 				(
 					IEnumerable<IEnumerable<(Rect rect, int vtxCount, int baseVtx)>> qUvInfo_PerSubPerMesh_,
-					List<(Mesh mesh, Material[] mats, Transform tf)> mmts_
+					IEnumerable<(Mesh mesh, Material[] mats, Transform tf)> mmts_
 				)
 			{
 				var qUvs_PerMesh = from x in mmts_ select x.mesh.uv;
@@ -126,8 +135,7 @@ namespace Abss.Geometry
 			void translateUvsInMeshes_
 				(
 					IEnumerable<IEnumerable<Vector2>> qUvsTranslated_PerMesh_,
-					List<(Mesh mesh, Material[] mats, Transform tf)> mmts_,
-					Texture texturePacked
+					IEnumerable<(Mesh mesh, Material[] mats, Transform tf)> mmts_
 				)
 			{
 				var qMeshTraverse =
@@ -139,21 +147,37 @@ namespace Abss.Geometry
 				{
 					var smr = perMesh.dstTf.GetComponent<SkinnedMeshRenderer>().As();
 					var mf = perMesh.dstTf.GetComponent<MeshFilter>().As();
-					var mr = perMesh.dstTf.GetComponent<MeshRenderer>().As();
-				
+					
 					var mesh = smr?.sharedMesh ?? mf?.mesh;
 					//mesh.SetUVs( 0, perMesh.srcUvs.ToList() );
 					mesh.uv = perMesh.srcUvs.ToArray();
 
 					if( smr != null ) smr.sharedMesh = mesh;
 					if( mf != null ) mf.mesh = mesh;
+				}
+			}
 
-					var mats = smr?.sharedMaterials ?? mr?.materials;
-					var newmats = ( from mat in mats.EmptyIfNull() select new Material(mat) ).ToArray();
-					foreach( var mat in newmats ) mat.mainTexture = texturePacked;
-
-					if( smr != null ) smr.sharedMaterials = newmats;
-					if( mr != null ) mr.materials = newmats;
+			void setNewMats_
+				(
+					Material[] materials_, Texture texturePacked_,
+					IEnumerable<(Mesh mesh, Material[] mats, Transform tf)> mmts_
+				)
+			{
+				var newMatDict = materials_
+					.Select( mat => (oldmat:mat, newmat:new Material(mat)) )
+					.Do( x => x.newmat.mainTexture = texturePacked_ )
+					.ToDictionary( x => x.oldmat, x => x.newmat )
+					;
+				
+				foreach( var tf in mmts.Select( mmt => mmt.tf ) )
+				{
+					var smr = tf.GetComponent<SkinnedMeshRenderer>().As();
+					var mr = tf.GetComponent<MeshRenderer>().As();
+					
+					if( smr != null ) smr.sharedMaterials =
+							( from mat in smr.sharedMaterials select newMatDict[mat] ).ToArray();
+					if( mr != null ) mr.materials = 
+							( from mat in mr.sharedMaterials select newMatDict[mat] ).ToArray();
 				}
 			}
 			

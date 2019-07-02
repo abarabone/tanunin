@@ -16,13 +16,13 @@ public class test : _StructurePartBase
     {
 		var parts = this.GetComponentsInChildren<test>();
 		
-		var tex = Abss.Geometry.TexturePacker.PackTextureAndTranslateUv( from x in parts select x.gameObject );
+		Abss.Geometry.TexturePacker.PackTextureAndTranslateUv( from x in parts select x.gameObject );
 
 		var results = await Task.WhenAll( Task.Run( MeshCombiner.BuildStructureWithPalletMeshElements( parts, this.transform ) ) );
 		//var parts = from x in this.GetComponentsInChildren<test>() select x.gameObject;
 		//var results = await Task.WhenAll( Task.Run( MeshCombiner.BuildNormalMeshElements( parts, this.transform ) ) );
 
-		mat.mainTexture = tex;
+		//mat.mainTexture = tex;
 
 		var go = results
 			.First()

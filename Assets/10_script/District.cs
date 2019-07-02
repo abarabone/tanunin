@@ -13,8 +13,7 @@ namespace Abss.StructureObject
 		{
 			
 			var a = from aa in this.GetComponentsInChildren<Renderer>() select aa.gameObject;
-			var tex = Geometry.TexturePacker.PackTextureAndTranslateUv( a );
-			foreach( var r in this.GetComponentsInChildren<Renderer>() ) foreach( var m in r.materials ) m.mainTexture = tex;
+			Geometry.TexturePacker.PackTextureAndTranslateUv( a );
 
 			var structures = this.GetComponentsInChildren<_StructureBase>();
 			
