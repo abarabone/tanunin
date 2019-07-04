@@ -19,16 +19,51 @@ namespace Abss.StructureObject
 
 		static public async Task<GameObject> BuildNearObjectAsync( this _StructurePartBase[] parts, Transform tfBase )
 		{
+			var buildAsyncs = new Task<GameObject> []
+			{
+				buildNearAsync_( parts ),
+				buildHitAsync_( parts.Where(pt => pt.partType == StructurePartType.massive) ),
+			};
 			
-			await Task.WhenAll( from pt in parts select pt.CombinePartMeshesAsync() );
+			var goes = await Task.WhenAll( buildAsyncs );
 
-			var meshElement = await Task.Run( MeshCombiner.BuildNormalMeshElements( parts.Select(x=>x.gameObject), tfBase ) );//.BuildStructureWithPalletMeshElements( parts, tfBase ) );
+			var tfNear = goes[0].transform;
+			foreach( var hit in goes.Skip(1) )
+			{
+				hit.transform.SetParent( tfNear, worldPositionStays:true );
+			}
 
-			var go = new GameObject();
-			go.AddComponent<MeshFilter>().mesh = meshElement.CreateMesh();
-			go.AddComponent<MeshRenderer>().material = new Material( meshElement.materials[0] );
+			return tfNear.gameObject;
 
-			return go;
+
+			async Task<GameObject> buildNearAsync_( IEnumerable<_StructurePartBase> parts_ )
+			{
+				var q = from pt in parts_ select pt.CombinePartMeshesAsync();
+				await Task.WhenAll( q );
+
+				var f = MeshCombiner.BuildNormalMeshElements( parts.Select(x=>x.gameObject), tfBase );//.BuildStructureWithPalletMeshElements( parts, tfBase );
+				var meshElement = await Task.Run( f );
+
+				var go = new GameObject("near");
+				go.AddComponent<MeshFilter>().mesh = meshElement.CreateMesh();
+				go.AddComponent<MeshRenderer>().material = new Material( meshElement.materials[0] );
+
+				return go;
+			}
+
+			async Task<GameObject> buildHitAsync_( IEnumerable<_StructurePartBase> parts_ )
+			{
+				var q = from pt in parts_ select pt.CombinePartMeshesAsync();
+				await Task.WhenAll( q );
+
+				var f = MeshCombiner.BuildBaseMeshElements( parts.Select(x=>x.gameObject), tfBase );
+				var meshElement = await Task.Run( f );
+
+				var go = new GameObject("near hit");
+				go.AddComponent<MeshCollider>().sharedMesh = meshElement.CreateMesh();
+				
+				return go;
+			}
 		}
 
 		

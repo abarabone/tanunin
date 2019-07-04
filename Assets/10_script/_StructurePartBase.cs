@@ -15,6 +15,9 @@ namespace Abss.StructureObject
 
 		public int PartId { get; private set; }
 
+		public StructurePartType partType;
+
+
 
 		public async Task BuildAsync()
 		{

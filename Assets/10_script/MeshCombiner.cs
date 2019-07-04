@@ -63,22 +63,21 @@ namespace Abss.Geometry
 	{
 
 		/// <summary>
-		/// Mesh 要素を結合するデリゲートを返す。位置とＵＶのみ。
+		/// Mesh 要素を結合するデリゲートを返す。位置のみ。
 		/// </summary>
 		static public Func<MeshElements>
-			BuildUnlitMeshElements( IEnumerable<GameObject> gameObjects, Transform tfBase, bool isCombineSubMeshes = true )
+			BuildBaseMeshElements( IEnumerable<GameObject> gameObjects, Transform tfBase, bool isCombineSubMeshes = true )
 		{
 			var mmts = FromObject.QueryMeshMatsTransform_IfHaving( gameObjects ).ToArray();
 
-			return BuildUnlitMeshElements( mmts, tfBase, isCombineSubMeshes );
+			return BuildBaseMeshElements( mmts, tfBase, isCombineSubMeshes );
 		}
 
-		static Func<MeshElements> BuildUnlitMeshElements
+		static Func<MeshElements> BuildBaseMeshElements
 			( (Mesh mesh, Material[] mats, Transform tf)[] mmts, Transform tfBase, bool isCombineSubMeshes )
 		{
 
 			var vtxss = ( from x in mmts select x.mesh.vertices ).ToArray();
-			var uvss = ( from x in mmts select x.mesh.uv ).ToArray();
 
 			var idxsss = ( from x in mmts select x.mesh )
 				.To(PerSubMeshPerMesh.QueryIndices).ToArrayRecursive2();
@@ -95,7 +94,6 @@ namespace Abss.Geometry
 				return new MeshElements
 				{
 					Vertecies = ConvertUtility.ToVerticesArray( vtxss, mtObjects, mtBaseInv ),
-					Uvs = uvss.SelectMany( uvs => uvs ).ToArray(),
 
 					IndicesPerSubmesh = isCombineSubMeshes
 						? ConvertUtility.ToIndicesArray( vtxss, idxsss, mtObjects )
@@ -110,6 +108,35 @@ namespace Abss.Geometry
 		}
 		
 		
+		/// <summary>
+		/// Mesh 要素を結合するデリゲートを返す。位置とＵＶのみ。
+		/// </summary>
+		static public Func<MeshElements>
+			BuildUnlitMeshElements( IEnumerable<GameObject> gameObjects, Transform tfBase, bool isCombineSubMeshes = true )
+		{
+			var mmts = FromObject.QueryMeshMatsTransform_IfHaving( gameObjects ).ToArray();
+
+			return BuildBaseMeshElements( mmts, tfBase, isCombineSubMeshes );
+		}
+
+		static Func<MeshElements> BuildUnlitMeshElements
+			( (Mesh mesh, Material[] mats, Transform tf)[] mmts, Transform tfBase, bool isCombineSubMeshes )
+		{
+			var f = BuildBaseMeshElements( mmts, tfBase, isCombineSubMeshes );
+			
+			var uvss = ( from x in mmts select x.mesh.uv ).ToArray();
+			
+			return () =>
+			{
+				var me = f();
+
+				me.Uvs = uvss.SelectMany( uvs => uvs ).ToArray();
+
+				return me;
+			};
+		}
+		
+
 		/// <summary>
 		/// Mesh 要素を結合するデリゲートを返す。位置とＵＶと法線。
 		/// </summary>
