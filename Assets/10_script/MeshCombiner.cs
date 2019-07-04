@@ -85,7 +85,7 @@ namespace Abss.Geometry
 			
 			var mtBaseInv = tfBase.worldToLocalMatrix;
 			var mtObjects = ( from x in mmts select x.tf.localToWorldMatrix ).ToArray();
-			Debug.Log( string.Join(";",mmts.SelectMany(x=>x.mats).Select(x=>$"{x.name} {x.GetHashCode()}")) );
+			//Debug.Log( string.Join(";",mmts.SelectMany(x=>x.mats).Select(x=>$"{x.name} {x.GetHashCode()}")) );
 
 			return () =>
 			{

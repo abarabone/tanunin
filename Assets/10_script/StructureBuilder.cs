@@ -12,14 +12,14 @@ namespace Abss.StructureObject
 		public void Build( _StructureBase s )
 		{
 
-			
+
 			//isReplicated = !Tf.getComponentInDirectChildren<StructurePartContentsHolder>();//
 
 
 			//var contentsTop = s.Near.GetComponent<IStructureContent>();
 
 
-			//var builder = contentsTop.Build(  );
+			//var builder = contentsTop.Build();
 
 			//Near = builder.near;
 
@@ -37,8 +37,8 @@ namespace Abss.StructureObject
 
 			//hitter.landings = hitter.landings ?? GM.defaultLandings;
 
-			
-			
+
+
 			//Near.SetActive( true );//
 			//switchToFar();//
 
