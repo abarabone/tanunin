@@ -65,8 +65,8 @@ namespace Abss.Geometry
 		/// <summary>
 		/// Mesh 要素を結合するデリゲートを返す。位置のみ。
 		/// </summary>
-		static public Func<MeshElements>
-			BuildBaseMeshElements( IEnumerable<GameObject> gameObjects, Transform tfBase, bool isCombineSubMeshes = true )
+		static public Func<MeshElements> BuildBaseMeshElements
+			( IEnumerable<GameObject> gameObjects, Transform tfBase, bool isCombineSubMeshes = true )
 		{
 			var mmts = FromObject.QueryMeshMatsTransform_IfHaving( gameObjects ).ToArray();
 
@@ -111,12 +111,12 @@ namespace Abss.Geometry
 		/// <summary>
 		/// Mesh 要素を結合するデリゲートを返す。位置とＵＶのみ。
 		/// </summary>
-		static public Func<MeshElements>
-			BuildUnlitMeshElements( IEnumerable<GameObject> gameObjects, Transform tfBase, bool isCombineSubMeshes = true )
+		static public Func<MeshElements> BuildUnlitMeshElements
+			( IEnumerable<GameObject> gameObjects, Transform tfBase, bool isCombineSubMeshes = true )
 		{
 			var mmts = FromObject.QueryMeshMatsTransform_IfHaving( gameObjects ).ToArray();
 
-			return BuildBaseMeshElements( mmts, tfBase, isCombineSubMeshes );
+			return BuildUnlitMeshElements( mmts, tfBase, isCombineSubMeshes );
 		}
 
 		static Func<MeshElements> BuildUnlitMeshElements
@@ -140,16 +140,16 @@ namespace Abss.Geometry
 		/// <summary>
 		/// Mesh 要素を結合するデリゲートを返す。位置とＵＶと法線。
 		/// </summary>
-		static public Func<MeshElements>
-			BuildNormalMeshElements( IEnumerable<GameObject> gameObjects, Transform tfBase, bool isCombineSubMeshes = true )
+		static public Func<MeshElements> BuildNormalMeshElements
+			( IEnumerable<GameObject> gameObjects, Transform tfBase, bool isCombineSubMeshes = true )
 		{
 			var mmts = FromObject.QueryMeshMatsTransform_IfHaving( gameObjects ).ToArray();
 
 			return BuildNormalMeshElements( mmts, tfBase, isCombineSubMeshes );
 		}
 		
-		static Func<MeshElements>
-			BuildNormalMeshElements( (Mesh mesh,Material[] mats,Transform tf)[] mmts, Transform tfBase, bool isCombineSubMeshes )
+		static Func<MeshElements> BuildNormalMeshElements
+			( (Mesh mesh,Material[] mats,Transform tf)[] mmts, Transform tfBase, bool isCombineSubMeshes )
 		{
 			var f = BuildUnlitMeshElements( mmts, tfBase, isCombineSubMeshes );
 			
@@ -169,8 +169,8 @@ namespace Abss.Geometry
 		/// <summary>
 		/// Mesh 要素を結合するデリゲートを返す。Structure オブジェクト用。
 		/// </summary>
-		static public Func<MeshElements>
-			BuildStructureWithPalletMeshElements( IEnumerable<_StructurePartBase> parts, Transform tfBase )
+		static public Func<MeshElements> BuildStructureWithPalletMeshElements
+			( IEnumerable<_StructurePartBase> parts, Transform tfBase )
 		{
 			var gameObjects = from part in parts select part.gameObject;
 			var mmts = FromObject.QueryMeshMatsTransform_IfHaving( gameObjects ).ToArray();
@@ -178,8 +178,8 @@ namespace Abss.Geometry
 			return BuildStructureWithPalletMeshElements( mmts, tfBase );
 		}
 		
-		static Func<MeshElements>
-			BuildStructureWithPalletMeshElements( (Mesh mesh, Material[] mats, Transform tf)[] mmts, Transform tfBase )
+		static Func<MeshElements> BuildStructureWithPalletMeshElements
+			( (Mesh mesh, Material[] mats, Transform tf)[] mmts, Transform tfBase )
 		{
 
 			var f = BuildNormalMeshElements( mmts, tfBase, isCombineSubMeshes:true );
