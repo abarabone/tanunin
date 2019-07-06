@@ -22,7 +22,7 @@ namespace Abss.StructureObject
 		{
 			
 			var content = this.GetComponentInChildren<StructureContentSource>();//IStructureContent>();
-			var near_ = await content.GetOrBuildNear();
+			var near_ = await content.GetOrBuildNearAsync();
 
 			var rb = getOrCreateRigidBody_();
 			initRigidbody_( rb );

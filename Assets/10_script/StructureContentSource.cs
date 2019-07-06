@@ -7,14 +7,14 @@ using System.Threading.Tasks;
 
 namespace Abss.StructureObject
 {
-	public class StructureContentSource : MonoBehaviour//, IStructureContent
+	public class StructureContentSource : MonoBehaviour, IStructureContent
 	{
 
 		GameObject	near;
 		
 
 		
-		public async Task<GameObject> GetOrBuildNear()
+		public async Task<GameObject> GetOrBuildNearAsync()
 		{
 			if( this.near != null ) return this.near;
 

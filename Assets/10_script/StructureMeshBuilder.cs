@@ -17,43 +17,66 @@ namespace Abss.StructureObject
 	static public class StructureNearObjectBuilder
 	{
 
-		static public async Task<GameObject> BuildNearObjectAsync( this _StructurePartBase[] parts, Transform tfBase )
+		/// <summary>
+		/// 
+		/// </summary>
+		static public async Task<GameObject> BuildNearObjectAsync( this IEnumerable<_StructurePartBase> parts, Transform tfBase )
 		{
-			var buildAsyncs = new Task<GameObject> []
-			{
-				buildNearAsync_( parts ),
-				buildHitAsync_( parts.Where(pt => pt.partType == StructurePartType.massive) ),
-			};
-			
-			var goes = await Task.WhenAll( buildAsyncs );
 
-			var tfNear = goes[0].transform;
-			foreach( var hit in goes.Skip(1) )
+			var goes = await buildObjectsAsync_( parts );
+
+			setParent_( parent_:goes[0], children_:goes.Skip(1) );
+
+			return goes[0];
+			
+
+			async Task<GameObject[]> buildObjectsAsync_( IEnumerable<_StructurePartBase> parts_ )
 			{
-				hit.transform.SetParent( tfNear, worldPositionStays:true );
+				var buildAsyncs = new Task<GameObject> []
+				{
+					buildNearObjectAsync_( parts ),
+					buildHitObjectAsync_( parts.Where(pt => pt.partType == StructurePartType.massive) ),
+				};
+				return await Task.WhenAll( buildAsyncs );
+			}
+			
+			void setParent_( GameObject parent_, IEnumerable<GameObject> children_ )
+			{
+				var tfNear = parent_.transform;
+				foreach( var tfHit in children_.Select(go=>go.transform) )
+				{
+					tfHit.SetParent( tfNear, worldPositionStays:true );
+				}
 			}
 
-			return tfNear.gameObject;
-
-
-			async Task<GameObject> buildNearAsync_( IEnumerable<_StructurePartBase> parts_ )
+			async Task<GameObject> buildNearObjectAsync_( IEnumerable<_StructurePartBase> parts_ )
 			{
-				var q = from pt in parts_ select pt.CombinePartMeshesAsync();
+				Debug.Log($"build near pre : {tfBase.GetHashCode()}");
+
+				var q = from pt in parts_ select pt.combinePartMeshesAsync();
 				await Task.WhenAll( q );
+				
+				Debug.Log($"build near part combined : {tfBase.GetHashCode()}");
 
 				var f = MeshCombiner.BuildNormalMeshElements( parts.Select(x=>x.gameObject), tfBase );//.BuildStructureWithPalletMeshElements( parts, tfBase );
 				var meshElement = await Task.Run( f );
+				
+				Debug.Log($"build near combined : {tfBase.GetHashCode()}");
 
 				var go = new GameObject("near");
 				go.AddComponent<MeshFilter>().mesh = meshElement.CreateMesh();
 				go.AddComponent<MeshRenderer>().material = new Material( meshElement.materials[0] );
+				
+				( go.GetComponent<Rigidbody>().As() ?? go.AddComponent<Rigidbody>() ).isKinematic = true;
+
+				var sr = go.AddComponent<StructureNearRenderingController>();
 
 				return go;
 			}
 
-			async Task<GameObject> buildHitAsync_( IEnumerable<_StructurePartBase> parts_ )
+			async Task<GameObject> buildHitObjectAsync_( IEnumerable<_StructurePartBase> parts_ )
 			{
-				var q = from pt in parts_ select pt.CombinePartMeshesAsync();
+				var q = from pt in parts_ select pt.combinePartMeshesAsync();
 				await Task.WhenAll( q );
 
 				var f = MeshCombiner.BuildBaseMeshElements( parts.Select(x=>x.gameObject), tfBase );
@@ -64,47 +87,14 @@ namespace Abss.StructureObject
 				
 				return go;
 			}
-		}
-
-		
-		static GameObject BuildMeshAndGameObject( this _StructurePartBase[] parts )
-		{
 			
-
-			return null;
 		}
 
-
-
-		static private GameObject buildNearMeshForDraw( _StructureBase structure, _StructurePartBase[] parts )
-		{
-
-			foreach( var part in parts )
-			{
-				part.BuildAsync();
-			}
-
-			MeshCombiner.BuildStructureWithPalletMeshElements( parts, structure.transform );
-
-			return null;
-		}
-
-		static private GameObject buildNearMeshForHit( IStructurePart[] parts )
-		{
-
-			return null;
-		}
-
-	}
-
-	
-	static class NearObjectBuilder
-	{
 		
 		/// <summary>
 		/// パーツが子以下の改装にメッシュを持っていた場合、１つのメッシュとなるように結合する。
 		/// </summary>
-		public static async Task CombinePartMeshesAsync( this _StructurePartBase part )
+		static async Task combinePartMeshesAsync( this _StructurePartBase part )
 		{
 
 			// 子孫にメッシュが存在すれば、引っ張ってきて結合。１つのメッシュにする。
@@ -149,78 +139,15 @@ namespace Abss.StructureObject
 
 			void replaceOrAddComponents_CombinedMeshAndMaterials_( GameObject gameObject_, MeshElements me_ )
 			{
-				var mf = gameObject_.GetComponent<MeshFilter>().As() ?? gameObject_.AddComponent<MeshFilter>().As();
+				var mf = gameObject_.GetComponent<MeshFilter>().As() ?? gameObject_.AddComponent<MeshFilter>();
 				mf.sharedMesh = me_.CreateMesh();
 
-				var mr = gameObject_.GetComponent<MeshRenderer>().As() ?? gameObject_.AddComponent<MeshRenderer>().As();
+				var mr = gameObject_.GetComponent<MeshRenderer>().As() ?? gameObject_.AddComponent<MeshRenderer>();
 				mr.materials = me_.materials;
 			}
 		}
-
-		public static GameObject BuildNearObject( Mesh mesh, Material material )
-		{
-			var go = new GameObject( name: "near" );
-
-			addRigidBody_IfNoHave_( go );
-			addRenderer_( go, mesh, material );
-			addStructure_( go );
-
-			go.SetActive( false );
-
-			return go;
-
-			
-			void addRigidBody_IfNoHave_( GameObject go_ )
-			{
-				var rb = go.AddComponent<Rigidbody>();
-				rb.isKinematic = true;
-			}
-			void addRenderer_( GameObject go_, Mesh mesh_, Material mat_ )
-			{
-				var mf = go_.AddComponent<MeshFilter>();
-				mf.sharedMesh = mesh_;
-
-				var mr = go_.AddComponent<MeshRenderer>();
-				mr.sharedMaterial = mat_;
-			}
-			void addStructure_( GameObject go_ )
-			{
-				var sr = go.AddComponent<StructureNearRenderingController>();
-				
-			}
-		}
-
-		//GameObject BuildChildWithCollider( _StructurePart3.enType hitType, Transform tfParent )
-		//{
-
-		//	var mesh = meshBuilder.hits[ (int)hitType ].mesh;
-
-
-		//	if( mesh != null )
-		//	{
-
-		//		var go = new GameObject( hitType.ToString() );
-
-		//		go.layer = getPartLayer( hitType );
-
-
-		//		go.transform.SetParent( tfParent, false );
-
-		//		var cd = go.AddComponent<MeshCollider>();
-
-		//		cd.sharedMesh = mesh;
-
-
-		//		return go;
-
-		//	}
-
-		//	return null;
-
-		//}
+		
 	}
 
-	
-
 }
-
+	
