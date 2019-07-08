@@ -1,14 +1,14 @@
+ï»¿
+ãƒ»structure æº–å‚™
+ã€€ãƒ»contents è¤‡è£½
+ã€€ã€€ãƒ»part mesh çµåˆ
+ã€€ãƒ»structure mesh çµåˆ
+ã€€ãƒ»near ç”Ÿæˆ
+ã€€ãƒ»break controller ç”Ÿæˆ
 
-Estructure €”õ
-@Econtents •¡»
-@@Epart mesh Œ‹‡
-@Estructure mesh Œ‹‡
-@Enear ¶¬
-@Ebreak controller ¶¬
-
-Estructure ‰Šú‰»
-@Epart ‰Šú‰»
-@@Ehit indices
-@@Ehit bbox
-@Ehitter
-@Enear, break, env, far, ‰Šú‰»
+ãƒ»structure åˆæœŸåŒ–
+ã€€ãƒ»part åˆæœŸåŒ–
+ã€€ã€€ãƒ»hit indices
+ã€€ã€€ãƒ»hit bbox
+ã€€ãƒ»hitter
+ã€€ãƒ»near, break, env, far, åˆæœŸåŒ–
