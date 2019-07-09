@@ -4,21 +4,35 @@ using UnityEngine;
 using System;
 using System.Linq;
 using System.Threading.Tasks;
+using UnityEditor;
 
 namespace Abss.StructureObject
 {
 	public class StructureContentSource : MonoBehaviour, IStructureContent
 	{
 
-		IStructureContent	instancedContent;
+		GameObject	near;
 		
+
 		
 		public async Task<GameObject> GetOrBuildNearAsync()
 		{
-			if( this.instancedContent != null ) this.instancedContent = Instantiate<( this );
+			if( this.near != null ) return this.near;
 
-			return this.instancedContent.GetOrBuildNearAsync();
+
+			if( PrefabUtility.GetPrefabAssetType(this) != PrefabAssetType.NotAPrefab )
+			{
+				this.near = await Instantiate<StructureContentSource>( this ).GetOrBuildNearAsync();
+
+				return this.near;
+			}
+
+
+			var parts = this.GetComponentsInChildren<_StructurePartBase>();
+			
+			this.near = await StructureNearObjectBuilder.BuildNearObjectAsync( parts, this.transform );
+			
+			return this.near;
 		}
-
 	}
 }
