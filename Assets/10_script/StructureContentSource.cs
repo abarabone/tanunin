@@ -27,7 +27,6 @@ namespace Abss.StructureObject
 			
 			var parts = this.GetComponentsInChildren<_StructurePartBase>();
 			this.near = await StructureNearObjectBuilder.BuildNearObjectAsync( parts, this.transform );
-			this.near.SetActive( false );
 			return this.near;
 
 

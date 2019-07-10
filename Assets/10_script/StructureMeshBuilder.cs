@@ -64,6 +64,7 @@ namespace Abss.StructureObject
 				Debug.Log($"build near combined : {tfBase.GetHashCode()}");
 
 				var go = new GameObject("near");
+				go.SetActive( false );
 				go.AddComponent<MeshFilter>().mesh = meshElement.CreateMesh();
 				go.AddComponent<MeshRenderer>().material = new Material( meshElement.materials[0] );
 				
@@ -83,6 +84,7 @@ namespace Abss.StructureObject
 				var meshElement = await Task.Run( f );
 
 				var go = new GameObject("near hit");
+				go.SetActive( false );
 				go.AddComponent<MeshCollider>().sharedMesh = meshElement.CreateMesh();
 				
 				return go;
