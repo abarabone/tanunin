@@ -18,21 +18,20 @@ namespace Abss.StructureObject
 		public async Task<GameObject> GetOrBuildNearAsync()
 		{
 			if( this.near != null ) return this.near;
-
-
-			if( PrefabUtility.GetPrefabAssetType(this) != PrefabAssetType.NotAPrefab )
+			
+			if( isPrefab_(this.gameObject) )
 			{
 				this.near = await Instantiate<StructureContentSource>( this ).GetOrBuildNearAsync();
-
 				return this.near;
 			}
-
-
+			
 			var parts = this.GetComponentsInChildren<_StructurePartBase>();
-			
 			this.near = await StructureNearObjectBuilder.BuildNearObjectAsync( parts, this.transform );
-			
+			this.near.SetActive( false );
 			return this.near;
+
+
+			bool isPrefab_( GameObject go_ ) => PrefabUtility.GetPrefabAssetType(go_) != PrefabAssetType.NotAPrefab;
 		}
 	}
 }

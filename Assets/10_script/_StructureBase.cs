@@ -21,7 +21,7 @@ namespace Abss.StructureObject
 		public async Task BuildAsync()
 		{
 			
-			var content = this.GetComponentInChildren<StructureContentSource>();//IStructureContent>();
+			var content = this.GetComponentInChildren<IStructureContent>();
 			var near_ = await content.GetOrBuildNearAsync();
 
 			var rb = getOrCreateRigidBody_();
