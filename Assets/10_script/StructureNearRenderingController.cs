@@ -31,7 +31,7 @@ namespace Abss.StructureObject
 		// パーツの可視フラグをシェーダーへ転送するために、クッションとして使用。
 		BitFlagVector4Holder visibilityFlags = new BitFlagVector4Holder( 1024 / 4 * 3 );
 		// 最初から Vector4[] で管理するより、
-		// パーツ単位でのフラグオンオフは int ／転送時に Vector4 に全コピー、としたほうがコストが低いとふんでのこと。
+		// パーツ単位でのフラグオンオフは int で行い、転送時に Vector4 に全コピー、としたほうがコストが低いとふんでのこと。
 		// 32bit flag * 4 * 8 で 1024 bit を想定（現状 24bit だが）
 		// ただし、SetInt4Array() が存在しないため、int イメージでは転送できない。
 		// float にキャストしないといけない。つまり、0 ~ -1(32bit) ではなく、0 ~ 0xffffff(24bit) の値に限定される。
