@@ -10,7 +10,7 @@ using System;
 
 namespace Abss.StructureObject
 {
-	public class _StructurePartBase : MonoBehaviour, IStructurePart
+	public class _StructurePartBase : MonoBehaviour//, IStructurePart
 	{
 
 		public int PartId { get; private set; }
